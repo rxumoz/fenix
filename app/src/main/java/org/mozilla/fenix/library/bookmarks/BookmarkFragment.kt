@@ -10,6 +10,7 @@ import android.content.Context
 import android.graphics.PorterDuff.Mode.SRC_IN
 import android.graphics.PorterDuffColorFilter
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -28,6 +29,7 @@ import kotlinx.android.synthetic.main.fragment_bookmark.view.*
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import mozilla.appservices.places.BookmarkRoot
@@ -45,17 +47,15 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.FenixSnackbar
 import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.components.metrics.MetricController
-import org.mozilla.fenix.ext.bookmarkStorage
-import org.mozilla.fenix.ext.components
-import org.mozilla.fenix.ext.minus
-import org.mozilla.fenix.ext.nav
-import org.mozilla.fenix.ext.setRootTitles
-import org.mozilla.fenix.ext.urlToTrimmedHost
-import org.mozilla.fenix.ext.withOptionalDesktopFolders
+import org.mozilla.fenix.ext.*
 import org.mozilla.fenix.mvi.ActionBusFactory
 import org.mozilla.fenix.mvi.getAutoDisposeObservable
 import org.mozilla.fenix.mvi.getManagedEmitter
 import org.mozilla.fenix.utils.allowUndo
+
+import org.mozilla.fenix.settings.SettingsFragment
+import kotlin.coroutines.CoroutineContext
+
 
 @SuppressWarnings("TooManyFunctions", "LargeClass")
 class BookmarkFragment : Fragment(), BackHandler, AccountObserver {
@@ -135,11 +135,27 @@ class BookmarkFragment : Fragment(), BackHandler, AccountObserver {
     }
 
     private fun checkIfSignedIn() {
-        context?.components?.backgroundServices?.accountManager?.let {
-            it.register(this, owner = this)
-            it.authenticatedAccount()?.let { getManagedEmitter<SignInChange>().onNext(SignInChange.SignedIn) }
-                ?: getManagedEmitter<SignInChange>().onNext(SignInChange.SignedOut)
+        if(SettingsFragment.checkLocalServiceEnabled()){
+            context?.components?.backgroundServices?.accountManagerCN?.let {
+                it.register(this, owner = this)
+                it.authenticatedAccount()?.let { getManagedEmitter<SignInChange>().onNext(SignInChange.SignedIn) }
+                    ?: getManagedEmitter<SignInChange>().onNext(SignInChange.SignedOut)
+            }
+        }else {
+            context?.components?.backgroundServices?.accountManager?.let {
+                it.register(this, owner = this)
+                it.authenticatedAccount()?.let { getManagedEmitter<SignInChange>().onNext(SignInChange.SignedIn) }
+                    ?: getManagedEmitter<SignInChange>().onNext(SignInChange.SignedOut)
+            }
         }
+        val accountManager =
+                if (SettingsFragment.checkLocalServiceEnabled())
+                    requireComponents.backgroundServices.accountManagerCN
+                else
+                    requireComponents.backgroundServices.accountManager
+        accountManager.register(this, owner = this)
+        accountManager.authenticatedAccount()?.let { getManagedEmitter<SignInChange>().onNext(SignInChange.SignedIn) }
+            ?: getManagedEmitter<SignInChange>().onNext(SignInChange.SignedOut)
     }
 
     override fun onDestroyView() {
@@ -274,7 +290,12 @@ class BookmarkFragment : Fragment(), BackHandler, AccountObserver {
             .subscribe {
                 when (it) {
                     is SignInAction.ClickedSignIn -> {
-                        context?.components?.services?.accountsAuthFeature?.beginAuthentication(requireContext())
+
+                        if(SettingsFragment.checkLocalServiceEnabled()){
+                            requireComponents.servicesCN.accountsAuthFeature.beginAuthentication(requireContext())
+                        }else{
+                            requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+                        }
                         (activity as HomeActivity).openToBrowser(BrowserDirection.FromBookmarks)
                     }
                 }

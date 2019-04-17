@@ -16,6 +16,7 @@ import org.mozilla.fenix.BuildConfig
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.mvi.UIView
+import org.mozilla.fenix.settings.SettingsFragment
 
 class ShareUIView(
     container: ViewGroup,
@@ -42,8 +43,14 @@ class ShareUIView(
 
         // And authorized
         if (BuildConfig.SEND_TAB_ENABLED &&
+            !SettingsFragment.checkLocalServiceEnabled() &&
             !view.context.components.backgroundServices.accountManager.accountNeedsReauth()
         ) {
+            account_devices_recyclerview.adapter = AccountDevicesShareAdapter(view.context, actionEmitter)
+        } else if(BuildConfig.SEND_TAB_ENABLED &&
+            SettingsFragment.checkLocalServiceEnabled() &&
+            !view.context.components.backgroundServices.accountManagerCN.accountNeedsReauth()
+        ){
             account_devices_recyclerview.adapter = AccountDevicesShareAdapter(view.context, actionEmitter)
         } else {
             send_tab_group.visibility = View.GONE

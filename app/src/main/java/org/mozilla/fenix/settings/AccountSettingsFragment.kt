@@ -10,6 +10,7 @@ import android.text.InputFilter
 import android.text.format.DateUtils
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.Navigation
 import androidx.navigation.fragment.findNavController
 import androidx.preference.CheckBoxPreference
 import androidx.preference.EditTextPreference
@@ -33,12 +34,14 @@ import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.FenixSnackbar
 import org.mozilla.fenix.components.metrics.Event
+import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getPreferenceKey
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.requireComponents
 
 class AccountSettingsFragment : PreferenceFragmentCompat() {
     private lateinit var accountManager: FxaAccountManager
+    private lateinit var accountManagerCN: FxaAccountManager
 
     // Navigate away from this fragment when we encounter auth problems or logout events.
     private val accountStateObserver = object : AccountObserver {
@@ -84,8 +87,16 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.account_settings_preferences, rootKey)
 
-        accountManager = requireComponents.backgroundServices.accountManager
-        accountManager.register(accountStateObserver, this, true)
+        if(SettingsFragment.localServiceEnabled){
+            accountManager = requireComponents.backgroundServices.accountManagerCN
+            accountManager.register(accountStateObserver, this, true)
+        }else {
+            accountManager = requireComponents.backgroundServices.accountManager
+            accountManager.register(accountStateObserver, this, true)
+        }
+
+
+
 
         // Sign out
         val signOut = context!!.getPreferenceKey(R.string.pref_key_sign_out)
@@ -118,9 +129,16 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
 
         // NB: ObserverRegistry will take care of cleaning up internal references to 'observer' and
         // 'owner' when appropriate.
-        requireComponents.backgroundServices.accountManager.registerForSyncEvents(
-            syncStatusObserver, owner = this, autoPause = true
-        )
+        if(SettingsFragment.localServiceEnabled){
+            requireComponents.backgroundServices.accountManagerCN.registerForSyncEvents(
+                syncStatusObserver, owner = this, autoPause = true
+            )
+        }else {
+            requireComponents.backgroundServices.accountManager.registerForSyncEvents(
+                syncStatusObserver, owner = this, autoPause = true
+            )
+        }
+
     }
 
     private fun getClickListenerForSignOut(): Preference.OnPreferenceClickListener {
@@ -138,12 +156,21 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
             lifecycleScope.launch {
                 requireComponents.analytics.metrics.track(Event.SyncAccountSyncNow)
                 // Trigger a sync.
-                requireComponents.backgroundServices.accountManager.syncNowAsync().await()
-                // Poll for device events.
-                accountManager.authenticatedAccount()
-                    ?.deviceConstellation()
-                    ?.refreshDeviceStateAsync()
-                    ?.await()
+                if(SettingsFragment.checkLocalServiceEnabled()){
+                    requireComponents.backgroundServices.accountManagerCN.syncNowAsync().await()
+                    // Poll for device events.
+                    accountManagerCN.authenticatedAccount()
+                        ?.deviceConstellation()
+                        ?.refreshDeviceStateAsync()
+                        ?.await()
+                }else {
+                    requireComponents.backgroundServices.accountManager.syncNowAsync().await()
+                    // Poll for device events.
+                    accountManager.authenticatedAccount()
+                        ?.deviceConstellation()
+                        ?.refreshDeviceStateAsync()
+                        ?.await()
+                }
             }
             true
         }

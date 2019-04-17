@@ -26,6 +26,7 @@ import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.mvi.ActionBusFactory
 import org.mozilla.fenix.mvi.getAutoDisposeObservable
+import org.mozilla.fenix.settings.SettingsFragment
 
 class ShareFragment : AppCompatDialogFragment() {
     interface TabsSharedCallback {
@@ -95,19 +96,37 @@ class ShareFragment : AppCompatDialogFragment() {
                     }
                 }
                 is ShareAction.ShareDeviceClicked -> {
-                    val authAccount =
-                        requireComponents.backgroundServices.accountManager.authenticatedAccount()
-                    authAccount?.run {
-                        sendSendTab(this, it.device.id, tabs)
+                    if(SettingsFragment.checkLocalServiceEnabled()){
+                        val authAccount =
+                            requireComponents.backgroundServices.accountManagerCN.authenticatedAccount()
+                        authAccount?.run {
+                            sendSendTab(this, it.device.id, tabs)
+                        }
+                    }else {
+                        val authAccount =
+                            requireComponents.backgroundServices.accountManager.authenticatedAccount()
+                        authAccount?.run {
+                            sendSendTab(this, it.device.id, tabs)
+                        }
                     }
                     dismiss()
                 }
                 is ShareAction.SendAllClicked -> {
-                    val authAccount =
-                        requireComponents.backgroundServices.accountManager.authenticatedAccount()
-                    authAccount?.run {
-                        it.devices.forEach { device ->
-                            sendSendTab(this, device.id, tabs)
+                    if(SettingsFragment.checkLocalServiceEnabled()){
+                        val authAccount =
+                            requireComponents.backgroundServices.accountManagerCN.authenticatedAccount()
+                        authAccount?.run {
+                            it.devices.forEach { device ->
+                                sendSendTab(this, device.id, tabs)
+                            }
+                        }
+                    }else {
+                        val authAccount =
+                            requireComponents.backgroundServices.accountManager.authenticatedAccount()
+                        authAccount?.run {
+                            it.devices.forEach { device ->
+                                sendSendTab(this, device.id, tabs)
+                            }
                         }
                     }
                     dismiss()

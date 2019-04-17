@@ -21,6 +21,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.customtabs.CustomTabToolbarMenu
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.mvi.UIView
+import org.mozilla.fenix.settings.SettingsFragment
 
 class ToolbarUIView(
     sessionId: String?,
@@ -104,11 +105,20 @@ class ToolbarUIView(
                     onItemTapped = { actionEmitter.onNext(SearchAction.ToolbarMenuItemTapped(it)) }
                 )
             } else {
-                DefaultToolbarMenu(this,
-                    hasAccountProblem = components.backgroundServices.accountManager.accountNeedsReauth(),
-                    requestDesktopStateProvider = { session?.desktopMode ?: false },
-                    onItemTapped = { actionEmitter.onNext(SearchAction.ToolbarMenuItemTapped(it)) }
-                )
+                if(SettingsFragment.checkLocalServiceEnabled()){
+                    DefaultToolbarMenu(this,
+                        hasAccountProblem = components.backgroundServices.accountManagerCN.accountNeedsReauth(),
+                        requestDesktopStateProvider = { session?.desktopMode ?: false },
+                        onItemTapped = { actionEmitter.onNext(SearchAction.ToolbarMenuItemTapped(it)) }
+                    )
+                }else{
+                    DefaultToolbarMenu(this,
+                        hasAccountProblem = components.backgroundServices.accountManager.accountNeedsReauth(),
+                        requestDesktopStateProvider = { session?.desktopMode ?: false },
+                        onItemTapped = { actionEmitter.onNext(SearchAction.ToolbarMenuItemTapped(it)) }
+                    )
+                }
+
             }
 
             toolbarIntegration = ToolbarIntegration(

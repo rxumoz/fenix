@@ -43,10 +43,7 @@ import org.mozilla.fenix.library.bookmarks.BookmarkFragmentDirections
 import org.mozilla.fenix.library.bookmarks.selectfolder.SelectBookmarkFolderFragmentDirections
 import org.mozilla.fenix.library.history.HistoryFragmentDirections
 import org.mozilla.fenix.search.SearchFragmentDirections
-import org.mozilla.fenix.settings.AccountProblemFragmentDirections
-import org.mozilla.fenix.settings.PairFragmentDirections
-import org.mozilla.fenix.settings.SettingsFragmentDirections
-import org.mozilla.fenix.settings.TurnOnSyncFragmentDirections
+import org.mozilla.fenix.settings.*
 import org.mozilla.fenix.share.ShareFragment
 import org.mozilla.fenix.utils.Settings
 
@@ -143,12 +140,22 @@ open class HomeActivity : AppCompatActivity(), ShareFragment.TabsSharedCallback 
         super.onResume()
         lifecycleScope.launch {
             with(components.backgroundServices) {
-                // Make sure accountManager is initialized.
-                accountManager.initAsync().await()
-                // If we're authenticated, kick-off a sync and a device state refresh.
-                accountManager.authenticatedAccount()?.let {
-                    accountManager.syncNowAsync(startup = true)
-                    it.deviceConstellation().refreshDeviceStateAsync().await()
+                if(SettingsFragment.checkLocalServiceEnabled()){
+                    // Make sure accountManager is initialized.
+                    accountManagerCN.initAsync().await()
+                    // If we're authenticated, kick-off a sync and a device state refresh.
+                    accountManagerCN.authenticatedAccount()?.let {
+                        accountManagerCN.syncNowAsync(startup = true)
+                        it.deviceConstellation().refreshDeviceStateAsync().await()
+                    }
+                }else {
+                    // Make sure accountManager is initialized.
+                    accountManager.initAsync().await()
+                    // If we're authenticated, kick-off a sync and a device state refresh.
+                    accountManager.authenticatedAccount()?.let {
+                        accountManager.syncNowAsync(startup = true)
+                        it.deviceConstellation().refreshDeviceStateAsync().await()
+                    }
                 }
             }
         }

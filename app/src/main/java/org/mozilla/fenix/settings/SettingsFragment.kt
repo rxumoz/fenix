@@ -12,18 +12,33 @@ import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
+import android.util.Log
 import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
+import androidx.preference.PreferenceFragmentCompat
+import mozilla.components.concept.sync.AccountObserver
+import mozilla.components.concept.sync.OAuthAccount
+import mozilla.components.support.ktx.android.content.hasCamera
+import org.mozilla.fenix.*
+import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.ext.getPreferenceKey
+import org.mozilla.fenix.ext.requireComponents
+import org.mozilla.fenix.utils.ItsNotBrokenSnack
+
+
 import androidx.preference.Preference
 import androidx.preference.Preference.OnPreferenceClickListener
 import androidx.preference.PreferenceCategory
-import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.SwitchPreference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+
 import kotlinx.coroutines.launch
-import mozilla.components.concept.sync.AccountObserver
-import mozilla.components.concept.sync.OAuthAccount
+
 import mozilla.components.concept.sync.Profile
 import mozilla.components.support.ktx.android.content.hasCamera
 import org.mozilla.fenix.BrowserDirection
@@ -57,7 +72,8 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getPreferenceKey
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.isInExperiment
-import org.mozilla.fenix.utils.ItsNotBrokenSnack
+import org.mozilla.fenix.R.string.pref_key_sync_service
+import org.mozilla.fenix.settings.SettingsFragment.Companion.localServiceEnabled
 
 @SuppressWarnings("TooManyFunctions", "LargeClass")
 class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
@@ -77,17 +93,32 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
             }
         }
 
+    companion object {
+        var localServiceEnabled = true
+        fun checkLocalServiceEnabled(): Boolean {
+            return localServiceEnabled
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Observe account changes to keep the UI up-to-date.
-        requireComponents.backgroundServices.accountManager.register(this, owner = this, autoPause = true)
+        if(localServiceEnabled){
+            requireComponents.backgroundServices.accountManager.unregister(this)
+            requireComponents.backgroundServices.accountManagerCN.register(this, owner = this, autoPause = true)
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManagerCN.accountProfile())
+        }else{
+            requireComponents.backgroundServices.accountManagerCN.unregister(this)
+            requireComponents.backgroundServices.accountManager.register(this, owner = this, autoPause = true)
 
-        // It's important to update the account UI state in onCreate, even though we also call it in onResume, since
-        // that ensures we'll never display an incorrect state in the UI. For example, if user is signed-in, and we
-        // don't perform this call in onCreate, we'll briefly display a "Sign In" preference, which will then get
-        // replaced by the correct account information once this call is ran in onResume shortly after.
-        updateAccountUIState(context!!, requireComponents.backgroundServices.accountManager.accountProfile())
+            // It's important to update the account UI state in onCreate, even though we also call it in onResume, since
+            // that ensures we'll never display an incorrect state in the UI. For example, if user is signed-in, and we
+            // don't perform this call in onCreate, we'll briefly display a "Sign In" preference, which will then get
+            // replaced by the correct account information once this call is ran in onResume shortly after.
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManager.accountProfile())
+        }
+
 
         preferenceManager.sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
 
@@ -108,17 +139,17 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
         (activity as AppCompatActivity).title = getString(R.string.settings_title)
         (activity as AppCompatActivity).supportActionBar?.show()
         val defaultBrowserPreference =
-            findPreference<DefaultBrowserPreference>(getString(R.string.pref_key_make_default_browser))
+                findPreference<DefaultBrowserPreference>(getString(R.string.pref_key_make_default_browser))
         defaultBrowserPreference?.updateSwitch()
 
         val searchEnginePreference =
-            findPreference<Preference>(getString(R.string.pref_key_search_engine_settings))
+                findPreference<Preference>(getString(R.string.pref_key_search_engine_settings))
         searchEnginePreference?.summary = context?.let {
             requireComponents.search.searchEngineManager.getDefaultSearchEngine(it).name
         }
 
         val trackingProtectionPreference =
-            findPreference<Preference>(getString(R.string.pref_key_tracking_protection_settings))
+                findPreference<Preference>(getString(R.string.pref_key_tracking_protection_settings))
         trackingProtectionPreference?.summary = context?.let {
             if (org.mozilla.fenix.utils.Settings.getInstance(it).shouldUseTrackingProtection) {
                 getString(R.string.tracking_protection_on)
@@ -128,7 +159,7 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
         }
 
         val themesPreference =
-            findPreference<Preference>(getString(R.string.pref_key_theme))
+                findPreference<Preference>(getString(R.string.pref_key_theme))
         themesPreference?.summary = context?.let {
             org.mozilla.fenix.utils.Settings.getInstance(it).themeSettingString
         }
@@ -139,7 +170,11 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
 
         setupPreferences()
 
-        updateAccountUIState(context!!, requireComponents.backgroundServices.accountManager.accountProfile())
+        if(localServiceEnabled){
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManagerCN.accountProfile())
+        }else {
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManager.accountProfile())
+        }
     }
 
     @Suppress("ComplexMethod")
@@ -166,9 +201,9 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
             }
             resources.getString(pref_key_help) -> {
                 (activity as HomeActivity).openToBrowserAndLoad(
-                    searchTermOrURL = SupportUtils.getSumoURLForTopic(context!!, SupportUtils.SumoTopic.HELP),
-                    newTab = true,
-                    from = BrowserDirection.FromSettings
+                        searchTermOrURL = SupportUtils.getSumoURLForTopic(context!!, SupportUtils.SumoTopic.HELP),
+                        newTab = true,
+                        from = BrowserDirection.FromSettings
                 )
             }
             resources.getString(pref_key_rate) -> {
@@ -178,9 +213,9 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
                     // Device without the play store installed.
                     // Opening the play store website.
                     (activity as HomeActivity).openToBrowserAndLoad(
-                        searchTermOrURL = SupportUtils.FENIX_PLAY_STORE_URL,
-                        newTab = true,
-                        from = BrowserDirection.FromSettings
+                            searchTermOrURL = SupportUtils.FENIX_PLAY_STORE_URL,
+                            newTab = true,
+                            from = BrowserDirection.FromSettings
                     )
                 }
             }
@@ -208,8 +243,8 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
             resources.getString(pref_key_your_rights) -> {
                 requireContext().apply {
                     val intent = SupportUtils.createCustomTabIntent(
-                        this,
-                        SupportUtils.getSumoURLForTopic(context!!, SupportUtils.SumoTopic.YOUR_RIGHTS)
+                            this,
+                            SupportUtils.getSumoURLForTopic(context!!, SupportUtils.SumoTopic.YOUR_RIGHTS)
                     )
                     startActivity(intent)
                 }
@@ -223,6 +258,31 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
         preferenceManager.sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
     }
 
+
+    /*private fun setupAccountUI() {
+        val accountManager = requireComponents.backgroundServices.accountManager
+        val accountManagerCN = requireComponents.backgroundServices.accountManagerCN
+        // Observe account changes to keep the UI up-to-date.
+        if (localServiceEnabled) {
+            accountManager.unregister(this)
+            accountManagerCN.register(this, owner = this)
+            Log.e("SyncService", "account CN registered")
+            updateAuthState(accountManagerCN.authenticatedAccount())
+            accountManagerCN.accountProfile()?.let { updateAccountProfile(it) }
+        } else {
+            accountManagerCN.unregister(this)
+            accountManager.register(this, owner = this)
+            updateAuthState(accountManager.authenticatedAccount())
+            accountManager.accountProfile()?.let { updateAccountProfile(it) }
+        }
+
+        // TODO an authenticated state will mark 'preferenceSignIn' as invisible; currently that behaviour is non-ideal:
+        // a "sign in" UI will be displayed at first, and then quickly animate away.
+        // Ideally we don't want it to be displayed at all.
+
+
+    }*/
+
     private fun getClickListenerForSignIn(): OnPreferenceClickListener {
         return OnPreferenceClickListener {
             // Do not navigate to pairing UI if camera not available or pairing is disabled
@@ -232,7 +292,14 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
                 val directions = SettingsFragmentDirections.actionSettingsFragmentToTurnOnSyncFragment()
                 Navigation.findNavController(view!!).navigate(directions)
             } else {
-                requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+                if (localServiceEnabled) {
+                    requireComponents.servicesCN.accountsAuthFeature.beginAuthentication(requireContext())
+                    Log.e("SyncService", "local beginAuthentication")
+                } else {
+                    requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+                    Log.e("SyncService", "global beginAuthentication")
+                }
+                //requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
                 // TODO The sign-in web content populates session history,
                 // so pressing "back" after signing in won't take us back into the settings screen, but rather up the
                 // session history stack.
@@ -240,21 +307,45 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
                 // Via an interceptor, perhaps.
                 requireComponents.analytics.metrics.track(Event.SyncAuthSignIn)
             }
+
             true
         }
     }
 
+    private fun switchSyncService() {
+        localServiceEnabled = !localServiceEnabled
+        //setupAccountUI()
+        if(localServiceEnabled){
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManagerCN.accountProfile())
+        }else{
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManager.accountProfile())
+        }
+
+    }
+
     private fun setupPreferences() {
+        val switchSyncService = context!!.getPreferenceKey(pref_key_sync_service)
         val makeDefaultBrowserKey = context!!.getPreferenceKey(pref_key_make_default_browser)
         val leakKey = context!!.getPreferenceKey(pref_key_leakcanary)
         val debuggingKey = context!!.getPreferenceKey(pref_key_remote_debugging)
 
+        val preferenceSwitchSyncService = findPreference<SwitchPreference>(switchSyncService)
         val preferenceMakeDefaultBrowser = findPreference<Preference>(makeDefaultBrowserKey)
         val preferenceLeakCanary = findPreference<Preference>(leakKey)
         val preferenceRemoteDebugging = findPreference<Preference>(debuggingKey)
 
+        localServiceEnabled = preferenceSwitchSyncService!!.isChecked()
+        Log.e("SyncService", preferenceSwitchSyncService!!.isChecked().toString())
+
+        preferenceSwitchSyncService?.onPreferenceChangeListener =
+                Preference.OnPreferenceChangeListener { _, newValue ->
+                    switchSyncService()
+                    Log.e("SyncService", localServiceEnabled.toString())
+                    true
+                }
+
         preferenceMakeDefaultBrowser?.onPreferenceClickListener =
-            getClickListenerForMakeDefaultBrowser()
+                getClickListenerForMakeDefaultBrowser()
 
         if (!Config.channel.isReleased) {
             preferenceLeakCanary?.setOnPreferenceChangeListener { _, newValue ->
@@ -265,7 +356,7 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
 
         preferenceRemoteDebugging?.setOnPreferenceChangeListener { preference, newValue ->
             org.mozilla.fenix.utils.Settings.getInstance(preference.context).preferences.edit()
-                .putBoolean(preference.key, newValue as Boolean).apply()
+                    .putBoolean(preference.key, newValue as Boolean).apply()
             requireComponents.core.engine.settings.remoteDebuggingEnabled = newValue
             true
         }
@@ -280,7 +371,7 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
         return if (SDK_INT >= Build.VERSION_CODES.N) {
             OnPreferenceClickListener {
                 val intent = Intent(
-                    Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS
+                        Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS
                 )
                 startActivity(intent)
                 true
@@ -307,7 +398,7 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
 
     private fun navigateToSitePermissions() {
         val directions =
-            SettingsFragmentDirections.actionSettingsFragmentToSitePermissionsFragment()
+                SettingsFragmentDirections.actionSettingsFragmentToSitePermissionsFragment()
         Navigation.findNavController(view!!).navigate(directions)
     }
 
@@ -333,27 +424,40 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
 
     private fun navigateToAccountSettings() {
         val directions =
-            SettingsFragmentDirections.actionSettingsFragmentToAccountSettingsFragment()
+                SettingsFragmentDirections.actionSettingsFragmentToAccountSettingsFragment()
         Navigation.findNavController(view!!).navigate(directions)
     }
 
     private fun navigateToDeleteBrowsingData() {
         val directions = SettingsFragmentDirections.actionSettingsFragmentToDeleteBrowsingDataFragment()
         Navigation.findNavController(view!!).navigate(directions)
+
     }
 
     override fun onAuthenticated(account: OAuthAccount) {
         lifecycleScope.launch {
             context?.let {
-                updateAccountUIState(it, it.components.backgroundServices.accountManager.accountProfile())
+                if(localServiceEnabled){
+                    updateAccountUIState(it, it.components.backgroundServices.accountManagerCN.accountProfile())
+                }else {
+                    updateAccountUIState(it, it.components.backgroundServices.accountManager.accountProfile())
+                }
             }
         }
     }
+    /*override fun onAuthenticated(account: OAuthAccount) {
+        updateAuthState(account)
+        Log.e("SyncService", "account authenticated")
+    }*/
 
     override fun onLoggedOut() {
         lifecycleScope.launch {
             context?.let {
-                updateAccountUIState(it, it.components.backgroundServices.accountManager.accountProfile())
+                if(localServiceEnabled){
+                    updateAccountUIState(it, it.components.backgroundServices.accountManagerCN.accountProfile())
+                }else {
+                    updateAccountUIState(it, it.components.backgroundServices.accountManager.accountProfile())
+                }
             }
         }
     }
@@ -369,7 +473,11 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
     override fun onAuthenticationProblems() {
         lifecycleScope.launch {
             context?.let {
-                updateAccountUIState(it, it.components.backgroundServices.accountManager.accountProfile())
+                if(localServiceEnabled){
+                    updateAccountUIState(it, it.components.backgroundServices.accountManagerCN.accountProfile())
+                }else {
+                    updateAccountUIState(it, it.components.backgroundServices.accountManager.accountProfile())
+                }
             }
         }
     }
@@ -379,6 +487,19 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
      * Possible conditions are logged-in without problems, logged-out, and logged-in but needs to re-authenticate.
      */
     private fun updateAccountUIState(context: Context, profile: Profile?) {
+
+        // --- Account UI helpers ---
+
+        /*private fun updateAuthState(account: OAuthAccount? = null) {
+        // Cache the user's auth state to improve performance of sign in visibility
+        org.mozilla.fenix.utils.Settings.getInstance(context!!).setHasCachedAccount(account != null)
+    }
+
+    private fun updateSignInVisibility() {
+        val hasCachedAccount = org.mozilla.fenix.utils.Settings.getInstance(context!!).hasCachedAccount
+
+    private fun updateAuthState(account: OAuthAccount? = null, accountCN: OAuthAccount? = null) {
+        val preferenceSyncService = findPreference<Preference>(context!!.getPreferenceKey(pref_key_sync_service))
         val preferenceSignIn =
             findPreference<Preference>(context.getPreferenceKey(pref_key_sign_in))
         val preferenceFirefoxAccount =
@@ -393,33 +514,71 @@ class SettingsFragment : PreferenceFragmentCompat(), AccountObserver {
 
         // Signed-in, no problems.
         if (account != null && !accountManager.accountNeedsReauth()) {
-            preferenceSignIn?.isVisible = false
-            preferenceSignIn?.onPreferenceClickListener = null
-            preferenceFirefoxAccountAuthError?.isVisible = false
-            preferenceFirefoxAccount?.isVisible = true
-            accountPreferenceCategory?.isVisible = true
+            findPreference<PreferenceCategory>(context!!.getPreferenceKey(pref_key_account_category))
+        if(account!=null){
+            Log.e("SynService", "account not null")
+        }
+        if(accountCN!=null){
+            Log.e("SynService", "accountCN not null")
+        }*/
 
-            preferenceFirefoxAccount?.displayName = profile?.displayName
-            preferenceFirefoxAccount?.email = profile?.email
+        val accountManager = requireComponents.backgroundServices.accountManager
+        val account = accountManager.authenticatedAccount()
+
+        val accountManagerCN = requireComponents.backgroundServices.accountManagerCN
+        val accountCN = accountManagerCN.authenticatedAccount()
+
+        val preferenceLocalService =
+                findPreference<Preference>(context!!.getPreferenceKey(pref_key_sync_service))
+        val preferenceSignIn =
+                findPreference<Preference>(context!!.getPreferenceKey(pref_key_sign_in))
+        val preferenceFirefoxAccountAuthError =
+                findPreference<AccountAuthErrorPreference>(context.getPreferenceKey(pref_key_account_auth_error))
+        val preferenceFirefoxAccount =
+                findPreference<Preference>(context!!.getPreferenceKey(pref_key_account))
+        val accountPreferenceCategory =
+                findPreference<PreferenceCategory>(context!!.getPreferenceKey(pref_key_account_category))
 
             // Signed-in, need to re-authenticate.
-        } else if (account != null && accountManager.accountNeedsReauth()) {
-            preferenceFirefoxAccount?.isVisible = false
-            preferenceFirefoxAccountAuthError?.isVisible = true
-            accountPreferenceCategory?.isVisible = true
+        if ((account != null && !accountManager.accountNeedsReauth())||(accountCN != null && !accountManagerCN.accountNeedsReauth())) {
+                preferenceLocalService?.isVisible = false
+                preferenceSignIn?.isVisible = false
+                preferenceSignIn?.onPreferenceClickListener = null
+                preferenceFirefoxAccountAuthError?.isVisible = false
+                preferenceFirefoxAccount?.isVisible = true
+                accountPreferenceCategory?.isVisible = true
 
-            preferenceSignIn?.isVisible = false
-            preferenceSignIn?.onPreferenceClickListener = null
+                //preferenceFirefoxAccount?.displayName = profile?.displayName
+                //preferenceFirefoxAccount?.email = profile?.email
 
-            preferenceFirefoxAccountAuthError?.email = profile?.email
+                // Signed-in, need to re-authenticate.
+            } else if ((account != null && accountManager.accountNeedsReauth())||(accountCN != null && accountManagerCN.accountNeedsReauth())) {
+                preferenceLocalService?.isVisible = false
+                preferenceFirefoxAccount?.isVisible = false
+                preferenceFirefoxAccountAuthError?.isVisible = true
+                accountPreferenceCategory?.isVisible = true
 
-            // Signed-out.
-        } else {
-            preferenceSignIn?.isVisible = true
-            preferenceSignIn?.onPreferenceClickListener = getClickListenerForSignIn()
-            preferenceFirefoxAccount?.isVisible = false
-            preferenceFirefoxAccountAuthError?.isVisible = false
-            accountPreferenceCategory?.isVisible = false
+                preferenceSignIn?.isVisible = false
+                preferenceSignIn?.onPreferenceClickListener = null
+
+                preferenceFirefoxAccountAuthError?.email = profile?.email
+
+                // Signed-out.
+            } else {
+                preferenceLocalService?.isVisible = true
+                preferenceSignIn?.isVisible = true
+                preferenceSignIn?.onPreferenceClickListener = getClickListenerForSignIn()
+                preferenceFirefoxAccount?.isVisible = false
+                preferenceFirefoxAccountAuthError?.isVisible = false
+                accountPreferenceCategory?.isVisible = false
+            }
         }
-    }
+        /* private fun updateAccountProfile(profile: Profile) {
+        launch {
+            val preferenceFirefoxAccount =
+                findPreference<Preference>(context!!.getPreferenceKey(pref_key_account))
+            preferenceFirefoxAccount?.title = profile.displayName.orEmpty()
+            preferenceFirefoxAccount?.summary = profile.email.orEmpty()
+        }
+    }*/
 }

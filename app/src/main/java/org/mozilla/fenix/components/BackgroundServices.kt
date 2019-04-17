@@ -14,7 +14,12 @@ import mozilla.components.browser.storage.sync.PlacesBookmarksStorage
 import mozilla.components.browser.storage.sync.PlacesHistoryStorage
 import mozilla.components.concept.push.Bus
 import mozilla.components.concept.push.PushProcessor
-import mozilla.components.concept.sync.AccountObserver
+import mozilla.components.concept.sync.*
+import mozilla.components.service.fxa.manager.FxaAccountManager
+import org.mozilla.fenix.Experiments
+import org.mozilla.fenix.isInExperiment
+import org.mozilla.fenix.test.Mockable
+
 import mozilla.components.concept.sync.DeviceCapability
 import mozilla.components.concept.sync.DeviceEvent
 import mozilla.components.concept.sync.DeviceEventsObserver
@@ -30,14 +35,14 @@ import mozilla.components.feature.push.AutoPushSubscription
 import mozilla.components.feature.push.PushConfig
 import mozilla.components.feature.push.PushSubscriptionObserver
 import mozilla.components.feature.push.PushType
-import mozilla.components.service.fxa.manager.FxaAccountManager
 import mozilla.components.service.fxa.sync.GlobalSyncableStoreProvider
 import mozilla.components.support.base.log.logger.Logger
 import org.mozilla.fenix.BuildConfig
-import org.mozilla.fenix.Experiments
 import org.mozilla.fenix.R
-import org.mozilla.fenix.isInExperiment
-import org.mozilla.fenix.test.Mockable
+
+import org.mozilla.fenix.R.string.pref_key_sync_service
+import org.mozilla.fenix.settings.SettingsFragment
+
 
 /**
  * Component group for background services. These are the components that need to be accessed from within a
@@ -53,9 +58,11 @@ class BackgroundServices(
     companion object {
         const val CLIENT_ID = "a2270f727f45f648"
         const val REDIRECT_URL = "https://accounts.firefox.com/oauth/success/$CLIENT_ID"
+        const val REDIRECT_URL_CN = "https://accounts.firefox.com.cn/oauth/success/$CLIENT_ID"
     }
 
     private val serverConfig = ServerConfig.release(CLIENT_ID, REDIRECT_URL)
+    private val cnserverConfig = ServerConfig("https://accounts.firefox.com.cn", CLIENT_ID, REDIRECT_URL_CN)
     private val deviceConfig = DeviceConfig(
         name = Build.MANUFACTURER + " " + Build.MODEL,
         type = DeviceType.MOBILE,
@@ -93,22 +100,38 @@ class BackgroundServices(
             // Notify observers for Services' messages.
             it.registerForPushMessages(PushType.Services, object : Bus.Observer<PushType, String> {
                 override fun onEvent(type: PushType, message: String) {
-                    accountManager.authenticatedAccount()?.deviceConstellation()
-                        ?.processRawEventAsync(message)
+                    if(SettingsFragment.checkLocalServiceEnabled()){
+                        accountManagerCN.authenticatedAccount()?.deviceConstellation()
+                                ?.processRawEventAsync(message)
+                    }else {
+                        accountManager.authenticatedAccount()?.deviceConstellation()
+                                ?.processRawEventAsync(message)
+                    }
                 }
             }, ProcessLifecycleOwner.get(), false)
 
             // Notify observers for subscription changes.
             it.registerForSubscriptions(object : PushSubscriptionObserver {
                 override fun onSubscriptionAvailable(subscription: AutoPushSubscription) {
-                    accountManager.authenticatedAccount()?.deviceConstellation()
-                        ?.setDevicePushSubscriptionAsync(
-                            DevicePushSubscription(
-                                endpoint = subscription.endpoint,
-                                publicKey = subscription.publicKey,
-                                authKey = subscription.authKey
-                            )
-                        )
+                    if(SettingsFragment.checkLocalServiceEnabled()){
+                        accountManagerCN.authenticatedAccount()?.deviceConstellation()
+                                ?.setDevicePushSubscriptionAsync(
+                                        DevicePushSubscription(
+                                                endpoint = subscription.endpoint,
+                                                publicKey = subscription.publicKey,
+                                                authKey = subscription.authKey
+                                        )
+                                )
+                    }else {
+                        accountManager.authenticatedAccount()?.deviceConstellation()
+                                ?.setDevicePushSubscriptionAsync(
+                                        DevicePushSubscription(
+                                                endpoint = subscription.endpoint,
+                                                publicKey = subscription.publicKey,
+                                                authKey = subscription.authKey
+                                        )
+                                )
+                    }
                 }
             }, ProcessLifecycleOwner.get(), false)
         }
@@ -171,6 +194,27 @@ class BackgroundServices(
         // This is a good example of an information leak at the API level.
         // See https://github.com/mozilla-mobile/android-components/issues/3732
         setOf("https://identity.mozilla.com/apps/oldsync")
+    ).also {
+        it.registerForDeviceEvents(deviceEventObserver, ProcessLifecycleOwner.get(), true)
+
+        // This should be removed in the future. See comment on `accountObserver`.
+        if (BuildConfig.SEND_TAB_ENABLED && pushConfig != null) {
+            it.register(accountObserver)
+        }
+        CoroutineScope(Dispatchers.Main).launch { it.initAsync().await() }
+    }
+
+    val accountManagerCN = FxaAccountManager(
+            context,
+            cnserverConfig,
+            deviceConfig,
+            syncConfig,
+            // We don't need to specify this explicitly, but `syncConfig` may be disabled due to an 'experiments'
+            // flag. In that case, sync scope necessary for syncing won't be acquired during authentication
+            // unless we explicitly specify it below.
+            // This is a good example of an information leak at the API level.
+            // See https://github.com/mozilla-mobile/android-components/issues/3732
+            setOf("https://identity.mozilla.com/apps/oldsync")
     ).also {
         it.registerForDeviceEvents(deviceEventObserver, ProcessLifecycleOwner.get(), true)
 

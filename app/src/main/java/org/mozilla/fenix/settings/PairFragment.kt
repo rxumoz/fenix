@@ -5,6 +5,7 @@
 package org.mozilla.fenix.settings
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -49,10 +50,19 @@ class PairFragment : Fragment(), BackHandler {
                     requestPermissions(permissions, REQUEST_CODE_CAMERA_PERMISSIONS)
                 },
                 onScanResult = { pairingUrl ->
-                    requireComponents.services.accountsAuthFeature.beginPairingAuthentication(
-                        requireContext(),
-                        pairingUrl
-                    )
+                    if(SettingsFragment.checkLocalServiceEnabled()) {
+                        requireComponents.servicesCN.accountsAuthFeature.beginPairingAuthentication(
+                            requireContext(),
+                            pairingUrl
+                        )
+                        Log.e("PairingFragmentCN",pairingUrl)
+                    }else {
+                        requireComponents.services.accountsAuthFeature.beginPairingAuthentication(
+                            requireContext(),
+                            pairingUrl
+                        )
+                        Log.e("PairingFragment",pairingUrl)
+                    }
                     findNavController(this@PairFragment)
                         .popBackStack(R.id.turnOnSyncFragment, false)
                 }),

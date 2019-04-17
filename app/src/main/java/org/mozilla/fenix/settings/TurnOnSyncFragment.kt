@@ -36,12 +36,23 @@ class TurnOnSyncFragment : Fragment(), AccountObserver {
 
     override fun onResume() {
         super.onResume()
-        if (requireComponents.backgroundServices.accountManager.authenticatedAccount() != null) {
-            findNavController(this).popBackStack()
-            return
-        }
+        if(!SettingsFragment.localServiceEnabled) {
+            if (requireComponents.backgroundServices.accountManager.authenticatedAccount() != null) {
+                findNavController(this).popBackStack()
+                return
+            }
 
-        requireComponents.backgroundServices.accountManager.register(this, owner = this)
+            requireComponents.backgroundServices.accountManagerCN.unregister(this)
+            requireComponents.backgroundServices.accountManager.register(this, owner = this)
+        }else{
+            if (requireComponents.backgroundServices.accountManagerCN.authenticatedAccount() != null) {
+                findNavController(this).popBackStack()
+                return
+            }
+
+            requireComponents.backgroundServices.accountManager.unregister(this)
+            requireComponents.backgroundServices.accountManagerCN.register(this, owner = this)
+        }
         (activity as AppCompatActivity).title = getString(R.string.preferences_sync)
         (activity as AppCompatActivity).supportActionBar?.show()
     }
@@ -59,7 +70,11 @@ class TurnOnSyncFragment : Fragment(), AccountObserver {
 
     private fun getClickListenerForSignIn(): View.OnClickListener {
         return View.OnClickListener {
-            requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+            if(!SettingsFragment.localServiceEnabled) {
+                requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+            }else{
+                requireComponents.servicesCN.accountsAuthFeature.beginAuthentication(requireContext())
+            }
             // TODO The sign-in web content populates session history,
             // so pressing "back" after signing in won't take us back into the settings screen, but rather up the
             // session history stack.

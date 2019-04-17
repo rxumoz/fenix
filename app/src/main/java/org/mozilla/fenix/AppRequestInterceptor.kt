@@ -5,6 +5,7 @@
 package org.mozilla.fenix
 
 import android.content.Context
+import android.util.Log
 import mozilla.components.browser.errorpages.ErrorPages
 import mozilla.components.browser.errorpages.ErrorType
 import mozilla.components.concept.engine.EngineSession
@@ -13,9 +14,10 @@ import org.mozilla.fenix.browser.UserAgentRewriter
 import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.exceptions.ExceptionDomains
 import org.mozilla.fenix.ext.components
-import org.mozilla.fenix.utils.Settings
 import java.net.MalformedURLException
+import org.mozilla.fenix.utils.Settings
 import java.net.URL
+import org.mozilla.fenix.settings.SettingsFragment
 
 class AppRequestInterceptor(private val context: Context) : RequestInterceptor {
     override fun onLoadRequest(session: EngineSession, uri: String): RequestInterceptor.InterceptionResponse? {
@@ -29,7 +31,13 @@ class AppRequestInterceptor(private val context: Context) : RequestInterceptor {
 
         adjustTrackingProtection(host, context, session)
         // Accounts uses interception to check for a "success URL" in the sign-in flow to finalize authentication.
-        return context.components.services.accountsAuthFeature.interceptor.onLoadRequest(session, uri)
+        if(SettingsFragment.checkLocalServiceEnabled()){
+            Log.e("SyncService","serviceCN interceptor")
+            return context.components.servicesCN.accountsAuthFeature.interceptor.onLoadRequest(session, uri)
+        }else {
+            Log.e("SyncService","service interceptor")
+            return context.components.services.accountsAuthFeature.interceptor.onLoadRequest(session, uri)
+        }
     }
 
     private fun adjustTrackingProtection(host: String, context: Context, session: EngineSession) {

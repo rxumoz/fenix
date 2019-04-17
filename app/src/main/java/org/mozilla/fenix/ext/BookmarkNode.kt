@@ -9,6 +9,7 @@ import mozilla.appservices.places.BookmarkRoot
 import mozilla.components.browser.storage.sync.PlacesBookmarksStorage
 import mozilla.components.concept.storage.BookmarkNode
 import org.mozilla.fenix.R
+import org.mozilla.fenix.settings.SettingsFragment
 
 var rootTitles: Map<String, String> = emptyMap()
 
@@ -22,7 +23,11 @@ suspend fun BookmarkNode?.withOptionalDesktopFolders(
         return null
     }
 
-    val loggedIn = context?.components?.backgroundServices?.accountManager?.authenticatedAccount() != null
+    //val loggedIn = context?.components?.backgroundServices?.accountManager?.authenticatedAccount() != null
+    val loggedIn = if(SettingsFragment.checkLocalServiceEnabled())
+                        context?.components?.backgroundServices?.accountManagerCN?.authenticatedAccount() !=null
+                    else
+                        context?.components?.backgroundServices?.accountManager?.authenticatedAccount() !=null
 
     // If we're in the mobile root and logged in, add-in a synthetic "Desktop Bookmarks" folder.
     return if (guid == BookmarkRoot.Mobile.id && loggedIn) {

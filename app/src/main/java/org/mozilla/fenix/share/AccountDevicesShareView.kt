@@ -20,6 +20,7 @@ import mozilla.components.concept.sync.DeviceCapability
 import mozilla.components.concept.sync.DeviceType
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.settings.SettingsFragment
 
 class AccountDevicesShareRecyclerView @JvmOverloads constructor(
     context: Context,
@@ -54,29 +55,58 @@ class AccountDevicesShareAdapter(
     private fun buildDeviceList(): List<SyncShareOption> {
         val list = mutableListOf<SyncShareOption>()
         val accountManager = context.components.backgroundServices.accountManager
+        val accountManagerCN = context.components.backgroundServices.accountManagerCN
 
-        if (accountManager.authenticatedAccount() == null) {
-            list.add(SyncShareOption.SignIn)
-            return list
-        }
 
-        accountManager.authenticatedAccount()?.deviceConstellation()?.state()?.otherDevices?.let { devices ->
-            val shareableDevices = devices.filter { it.capabilities.contains(DeviceCapability.SEND_TAB) }
-
-            if (shareableDevices.isEmpty()) {
-                list.add(SyncShareOption.AddNewDevice)
+        if(SettingsFragment.checkLocalServiceEnabled()){
+            if (accountManagerCN.authenticatedAccount() == null) {
+                list.add(SyncShareOption.SignIn)
+                return list
             }
 
-            val shareOptions = shareableDevices.map {
-                when (it.deviceType) {
-                    DeviceType.MOBILE -> SyncShareOption.Mobile(it.displayName, it)
-                    else -> SyncShareOption.Desktop(it.displayName, it)
+            accountManagerCN.authenticatedAccount()?.deviceConstellation()?.state()?.otherDevices?.let { devices ->
+                val shareableDevices = devices.filter { it.capabilities.contains(DeviceCapability.SEND_TAB) }
+
+                if (shareableDevices.isEmpty()) {
+                    list.add(SyncShareOption.AddNewDevice)
+                }
+
+                val shareOptions = shareableDevices.map {
+                    when (it.deviceType) {
+                        DeviceType.MOBILE -> SyncShareOption.Mobile(it.displayName, it)
+                        else -> SyncShareOption.Desktop(it.displayName, it)
+                    }
+                }
+                list.addAll(shareOptions)
+
+                if (shareableDevices.size > 1) {
+                    list.add(SyncShareOption.SendAll(shareableDevices))
                 }
             }
-            list.addAll(shareOptions)
+        }else {
+            if (accountManager.authenticatedAccount() == null) {
+                list.add(SyncShareOption.SignIn)
+                return list
+            }
 
-            if (shareableDevices.size > 1) {
-                list.add(SyncShareOption.SendAll(shareableDevices))
+            accountManager.authenticatedAccount()?.deviceConstellation()?.state()?.otherDevices?.let { devices ->
+                val shareableDevices = devices.filter { it.capabilities.contains(DeviceCapability.SEND_TAB) }
+
+                if (shareableDevices.isEmpty()) {
+                    list.add(SyncShareOption.AddNewDevice)
+                }
+
+                val shareOptions = shareableDevices.map {
+                    when (it.deviceType) {
+                        DeviceType.MOBILE -> SyncShareOption.Mobile(it.displayName, it)
+                        else -> SyncShareOption.Desktop(it.displayName, it)
+                    }
+                }
+                list.addAll(shareOptions)
+
+                if (shareableDevices.size > 1) {
+                    list.add(SyncShareOption.SendAll(shareableDevices))
+                }
             }
         }
         return list

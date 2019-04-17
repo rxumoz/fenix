@@ -5,6 +5,7 @@
 package org.mozilla.fenix.settings
 
 import android.os.Bundle
+import android.preference.Preference
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
@@ -29,14 +30,25 @@ class AccountProblemFragment : PreferenceFragmentCompat(), AccountObserver {
         (activity as AppCompatActivity).supportActionBar?.show()
 
         // We may have fixed our auth problem, in which case close this fragment.
-        if (requireComponents.backgroundServices.accountManager.authenticatedAccount() != null &&
-            !requireComponents.backgroundServices.accountManager.accountNeedsReauth()
-        ) {
-            NavHostFragment.findNavController(this).popBackStack()
-            return
-        }
+        if(SettingsFragment.checkLocalServiceEnabled()){
+            if (requireComponents.backgroundServices.accountManagerCN.authenticatedAccount() != null &&
+                !requireComponents.backgroundServices.accountManagerCN.accountNeedsReauth()
+            ) {
+                NavHostFragment.findNavController(this).popBackStack()
+                return
+            }
 
-        requireComponents.backgroundServices.accountManager.register(this, owner = this)
+            requireComponents.backgroundServices.accountManagerCN.register(this, owner = this)
+        }else {
+            if (requireComponents.backgroundServices.accountManager.authenticatedAccount() != null &&
+                !requireComponents.backgroundServices.accountManager.accountNeedsReauth()
+            ) {
+                NavHostFragment.findNavController(this).popBackStack()
+                return
+            }
+
+            requireComponents.backgroundServices.accountManager.register(this, owner = this)
+        }
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
@@ -52,7 +64,11 @@ class AccountProblemFragment : PreferenceFragmentCompat(), AccountObserver {
 
     private fun getClickListenerForSignIn(): Preference.OnPreferenceClickListener {
         return Preference.OnPreferenceClickListener {
-            requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+            if(SettingsFragment.checkLocalServiceEnabled()){
+                requireComponents.servicesCN.accountsAuthFeature.beginAuthentication(requireContext())
+            }else {
+                requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+            }
             // TODO The sign-in web content populates session history,
             // so pressing "back" after signing in won't take us back into the settings screen, but rather up the
             // session history stack.

@@ -84,6 +84,10 @@
     <!-- Preferences -->
     <!-- Title for the settings page-->
     <string name="settings">Settings</string>
+
+    <!-- Preferences -->
+    <!-- Preference for settings related to changing the sync service -->
+    <string name="preferences_set_sync_service">Use local service</string>
     <!-- Preference category for basic settings -->
     <string name="preferences_category_basics">Basics</string>
     <!-- Preference category for all links about Fenix -->

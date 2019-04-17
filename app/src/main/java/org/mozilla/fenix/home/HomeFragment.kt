@@ -38,6 +38,7 @@ import mozilla.components.browser.session.SessionManager
 import mozilla.components.concept.sync.AccountObserver
 import mozilla.components.concept.sync.OAuthAccount
 import mozilla.components.concept.sync.Profile
+import mozilla.components.service.fxa.FirefoxAccount
 import org.jetbrains.anko.constraint.layout.ConstraintSetBuilder.Side.BOTTOM
 import org.jetbrains.anko.constraint.layout.ConstraintSetBuilder.Side.END
 import org.jetbrains.anko.constraint.layout.ConstraintSetBuilder.Side.START
@@ -75,6 +76,7 @@ import org.mozilla.fenix.mvi.ActionBusFactory
 import org.mozilla.fenix.mvi.getAutoDisposeObservable
 import org.mozilla.fenix.mvi.getManagedEmitter
 import org.mozilla.fenix.onboarding.FenixOnboarding
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.share.ShareTab
 import org.mozilla.fenix.utils.allowUndo
@@ -319,7 +321,11 @@ class HomeFragment : Fragment(), AccountObserver {
 
         (activity as AppCompatActivity).supportActionBar?.hide()
 
-        requireComponents.backgroundServices.accountManager.register(this, owner = this)
+        if(SettingsFragment.checkLocalServiceEnabled()){
+            requireComponents.backgroundServices.accountManagerCN.register(this, owner = this)
+        }else {
+            requireComponents.backgroundServices.accountManager.register(this, owner = this)
+        }
     }
 
     override fun onStart() {
@@ -730,7 +736,12 @@ class HomeFragment : Fragment(), AccountObserver {
     }
 
     private fun currentMode(): Mode = if (!onboarding.userHasBeenOnboarded()) {
-        val account = requireComponents.backgroundServices.accountManager.authenticatedAccount()
+        val account:OAuthAccount?
+        if(SettingsFragment.checkLocalServiceEnabled()){
+            account = requireComponents.backgroundServices.accountManagerCN.authenticatedAccount()
+        }else {
+            account = requireComponents.backgroundServices.accountManager.authenticatedAccount()
+        }
         if (account == null) {
             Mode.Onboarding(OnboardingState.SignedOut)
         } else {

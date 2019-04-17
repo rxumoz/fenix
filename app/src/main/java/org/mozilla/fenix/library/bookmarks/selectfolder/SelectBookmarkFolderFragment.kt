@@ -46,6 +46,10 @@ import org.mozilla.fenix.mvi.ActionBusFactory
 import org.mozilla.fenix.mvi.getAutoDisposeObservable
 import org.mozilla.fenix.mvi.getManagedEmitter
 
+import org.mozilla.fenix.settings.SettingsFragment
+import kotlin.coroutines.CoroutineContext
+
+
 @SuppressWarnings("TooManyFunctions")
 class SelectBookmarkFolderFragment : Fragment(), AccountObserver {
 
@@ -81,7 +85,12 @@ class SelectBookmarkFolderFragment : Fragment(), AccountObserver {
             .subscribe {
                 when (it) {
                     is SignInAction.ClickedSignIn -> {
-                        requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+                        //requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+                        if(SettingsFragment.checkLocalServiceEnabled()){
+                            requireComponents.servicesCN.accountsAuthFeature.beginAuthentication(requireContext())
+                        }else{
+                            requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+                        }
                         view?.let {
                             (activity as HomeActivity).openToBrowser(BrowserDirection.FromBookmarksFolderSelect)
                         }
@@ -116,7 +125,11 @@ class SelectBookmarkFolderFragment : Fragment(), AccountObserver {
     }
 
     private fun checkIfSignedIn() {
-        val accountManager = requireComponents.backgroundServices.accountManager
+        val accountManager =
+                if (SettingsFragment.checkLocalServiceEnabled() )
+                    requireComponents.backgroundServices.accountManagerCN
+                else
+                    requireComponents.backgroundServices.accountManager
         accountManager.register(this, owner = this)
         accountManager.authenticatedAccount()?.let { getManagedEmitter<SignInChange>().onNext(SignInChange.SignedIn) }
             ?: getManagedEmitter<SignInChange>().onNext(SignInChange.SignedOut)

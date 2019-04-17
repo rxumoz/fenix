@@ -24,6 +24,7 @@ import org.mozilla.fenix.ext.requireComponents
 
 class SignOutFragment : BottomSheetDialogFragment() {
     private lateinit var accountManager: FxaAccountManager
+    private lateinit var accountManagerCN: FxaAccountManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,6 +51,7 @@ class SignOutFragment : BottomSheetDialogFragment() {
         savedInstanceState: Bundle?
     ): View? {
         accountManager = requireComponents.backgroundServices.accountManager
+        accountManagerCN = requireComponents.backgroundServices.accountManagerCN
         return inflater.inflate(R.layout.fragment_sign_out, container, false)
     }
 
@@ -58,11 +60,21 @@ class SignOutFragment : BottomSheetDialogFragment() {
 
         view.sign_out_disconnect.setOnClickListener {
             requireComponents.analytics.metrics.track(Event.SyncAccountSignOut)
-            lifecycleScope.launch {
-                accountManager.logoutAsync().await()
-            }.invokeOnCompletion {
-                if (!findNavController().popBackStack(R.id.settingsFragment, false)) {
-                    dismiss()
+            if(SettingsFragment.checkLocalServiceEnabled()){
+                lifecycleScope.launch {
+                    accountManagerCN.logoutAsync().await()
+                }.invokeOnCompletion {
+                    if (!findNavController().popBackStack(R.id.settingsFragment, false)) {
+                        dismiss()
+                    }
+                }
+            }else {
+                lifecycleScope.launch {
+                    accountManager.logoutAsync().await()
+                }.invokeOnCompletion {
+                    if (!findNavController().popBackStack(R.id.settingsFragment, false)) {
+                        dismiss()
+                    }
                 }
             }
         }
