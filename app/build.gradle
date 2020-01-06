@@ -21,6 +21,14 @@ import static org.gradle.api.tasks.testing.TestResult.ResultType
 
 android {
     compileSdkVersion 28
+    signingConfigs {
+        config {
+            keyAlias 'cn_rocket'
+            keyPassword 'mozilla'
+            storeFile file('/Users/mozillabeijing/signedkeybeta')
+            storePassword 'mozilla'
+        }
+    }
     defaultConfig {
         applicationId "org.mozilla"
         minSdkVersion Config.minSdkVersion

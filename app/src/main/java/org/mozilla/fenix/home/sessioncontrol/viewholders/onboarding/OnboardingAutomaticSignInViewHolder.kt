@@ -18,6 +18,7 @@ import mozilla.components.support.ktx.android.view.putCompoundDrawablesRelativeW
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.FenixSnackbar
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.settings.SettingsFragment
 
 class OnboardingAutomaticSignInViewHolder(view: View) : RecyclerView.ViewHolder(view) {
 
@@ -32,7 +33,12 @@ class OnboardingAutomaticSignInViewHolder(view: View) : RecyclerView.ViewHolder(
             it.turn_on_sync_button.isEnabled = false
 
             CoroutineScope(Dispatchers.Main).launch {
-                val result = view.context.components.backgroundServices.accountManager
+                val result =
+                    if (SettingsFragment.checkLocalServiceEnabled()) {
+                        view.context.components.backgroundServices.accountManagerCN
+                    } else {
+                        view.context.components.backgroundServices.accountManager
+                    }
                     .signInWithShareableAccountAsync(shareableAccount).await()
                 when (result) {
                     SignInWithShareableAccountResult.Failure -> {

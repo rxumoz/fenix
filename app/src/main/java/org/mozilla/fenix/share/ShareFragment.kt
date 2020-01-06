@@ -26,6 +26,7 @@ import org.mozilla.fenix.R
 import org.mozilla.fenix.components.FenixSnackbar
 import org.mozilla.fenix.ext.getRootView
 import org.mozilla.fenix.ext.requireComponents
+import org.mozilla.fenix.settings.SettingsFragment
 
 class ShareFragment : AppCompatDialogFragment() {
 
@@ -66,7 +67,12 @@ class ShareFragment : AppCompatDialogFragment() {
         val view = inflater.inflate(R.layout.fragment_share, container, false)
         val shareData = args.data.toList()
 
-        val accountManager = requireComponents.backgroundServices.accountManager
+        val accountManager =
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                requireComponents.backgroundServices.accountManagerCN
+            } else {
+                requireComponents.backgroundServices.accountManager
+            }
 
         shareInteractor = ShareInteractor(
             DefaultShareController(

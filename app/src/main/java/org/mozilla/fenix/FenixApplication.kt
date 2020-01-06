@@ -47,6 +47,7 @@ import org.mozilla.fenix.push.WebPushEngineIntegration
 import org.mozilla.fenix.session.NotificationSessionObserver
 import org.mozilla.fenix.session.PerformanceActivityLifecycleCallbacks
 import org.mozilla.fenix.session.VisibilityLifecycleCallback
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.utils.BrowsersCache
 import org.mozilla.fenix.utils.Settings
 
@@ -242,7 +243,13 @@ open class FenixApplication : LocaleAwareApplication() {
             }
 
             // Perform a one-time initialization of the account manager if a message is received.
-            PushFxaIntegration(it, lazy { components.backgroundServices.accountManager }).launch()
+            PushFxaIntegration(it, lazy {
+                if (SettingsFragment.checkLocalServiceEnabled()) {
+                    components.backgroundServices.accountManagerCN
+                } else {
+                    components.backgroundServices.accountManager
+                }
+            }).launch()
 
             // Initialize the service. This could potentially be done in a coroutine in the future.
             it.initialize()

@@ -86,6 +86,7 @@ import org.mozilla.fenix.home.sessioncontrol.SessionControlInteractor
 import org.mozilla.fenix.home.sessioncontrol.SessionControlView
 import org.mozilla.fenix.home.sessioncontrol.viewholders.CollectionViewHolder
 import org.mozilla.fenix.onboarding.FenixOnboarding
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.settings.SupportUtils
 import org.mozilla.fenix.settings.SupportUtils.MozillaPage.PRIVATE_NOTICE
 import org.mozilla.fenix.settings.SupportUtils.SumoTopic.HELP
@@ -374,26 +375,51 @@ class HomeFragment : Fragment() {
                 return@runIfReadyOrQueue
             }
 
-            requireComponents.backgroundServices.accountManager.register(
-                currentMode,
-                owner = this@HomeFragment.viewLifecycleOwner
-            )
-            requireComponents.backgroundServices.accountManager.register(object : AccountObserver {
-                override fun onAuthenticated(account: OAuthAccount, authType: AuthType) {
-                    if (authType != AuthType.Existing) {
-                        view?.let {
-                            FenixSnackbar.make(
-                                view = it,
-                                duration = Snackbar.LENGTH_SHORT,
-                                isDisplayedWithBrowserToolbar = false
-                            )
-                                .setText(it.context.getString(R.string.onboarding_firefox_account_sync_is_on))
-                                .setAnchorView(toolbarLayout)
-                                .show()
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                requireComponents.backgroundServices.accountManagerCN.register(
+                    currentMode,
+                    owner = this@HomeFragment.viewLifecycleOwner
+                )
+
+                requireComponents.backgroundServices.accountManagerCN.register(object : AccountObserver {
+                    override fun onAuthenticated(account: OAuthAccount, authType: AuthType) {
+                        if (authType != AuthType.Existing) {
+                            view?.let {
+                                FenixSnackbar.make(
+                                    view = it,
+                                    duration = Snackbar.LENGTH_SHORT,
+                                    isDisplayedWithBrowserToolbar = false
+                                )
+                                    .setText(it.context.getString(R.string.onboarding_firefox_account_sync_is_on))
+                                    .setAnchorView(toolbarLayout)
+                                    .show()
+                            }
                         }
                     }
-                }
-            }, owner = this@HomeFragment.viewLifecycleOwner)
+                }, owner = this@HomeFragment.viewLifecycleOwner)
+            } else {
+                requireComponents.backgroundServices.accountManager.register(
+                    currentMode,
+                    owner = this@HomeFragment.viewLifecycleOwner
+                )
+
+                requireComponents.backgroundServices.accountManager.register(object : AccountObserver {
+                    override fun onAuthenticated(account: OAuthAccount, authType: AuthType) {
+                        if (authType != AuthType.Existing) {
+                            view?.let {
+                                FenixSnackbar.make(
+                                    view = it,
+                                    duration = Snackbar.LENGTH_SHORT,
+                                    isDisplayedWithBrowserToolbar = false
+                                )
+                                    .setText(it.context.getString(R.string.onboarding_firefox_account_sync_is_on))
+                                    .setAnchorView(toolbarLayout)
+                                    .show()
+                            }
+                        }
+                    }
+                }, owner = this@HomeFragment.viewLifecycleOwner)
+            }
         }
 
         if (context.settings().showPrivateModeContextualFeatureRecommender &&

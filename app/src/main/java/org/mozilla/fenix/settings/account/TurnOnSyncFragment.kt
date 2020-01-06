@@ -22,14 +22,19 @@ import org.mozilla.fenix.components.FenixSnackbar
 import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.showToolbar
+import org.mozilla.fenix.settings.SettingsFragment
 
 class TurnOnSyncFragment : Fragment(), AccountObserver {
 
     private val args by navArgs<TurnOnSyncFragmentArgs>()
 
     private val signInClickListener = View.OnClickListener {
-        requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
         requireComponents.analytics.metrics.track(Event.SyncAuthUseEmail)
+        if (SettingsFragment.checkLocalServiceEnabled()) {
+            requireComponents.servicesCN.accountsAuthFeature.beginAuthentication(requireContext())
+        } else {
+            requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+        }
         // TODO The sign-in web content populates session history,
         // so pressing "back" after signing in won't take us back into the settings screen, but rather up the
         // session history stack.
@@ -55,12 +60,23 @@ class TurnOnSyncFragment : Fragment(), AccountObserver {
 
     override fun onResume() {
         super.onResume()
-        if (requireComponents.backgroundServices.accountManager.authenticatedAccount() != null) {
-            findNavController().popBackStack()
-            return
-        }
+        if (SettingsFragment.checkLocalServiceEnabled()) {
+            if (requireComponents.backgroundServices.accountManagerCN.authenticatedAccount() != null) {
+                findNavController().popBackStack()
+                return
+            }
 
-        requireComponents.backgroundServices.accountManager.register(this, owner = this)
+            requireComponents.backgroundServices.accountManager.unregister(this)
+            requireComponents.backgroundServices.accountManagerCN.register(this, owner = this)
+        } else {
+            if (requireComponents.backgroundServices.accountManager.authenticatedAccount() != null) {
+                findNavController().popBackStack()
+                return
+            }
+
+            requireComponents.backgroundServices.accountManagerCN.unregister(this)
+            requireComponents.backgroundServices.accountManager.register(this, owner = this)
+        }
         showToolbar(getString(R.string.preferences_sync))
     }
 

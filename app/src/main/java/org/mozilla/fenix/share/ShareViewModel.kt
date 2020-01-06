@@ -25,6 +25,7 @@ import mozilla.components.feature.share.RecentAppsStorage
 import mozilla.components.service.fxa.manager.FxaAccountManager
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.isOnline
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.share.listadapters.AppShareOption
 import org.mozilla.fenix.share.listadapters.SyncShareOption
 
@@ -35,7 +36,12 @@ class ShareViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private val connectivityManager by lazy { application.getSystemService<ConnectivityManager>() }
-    private val fxaAccountManager = application.components.backgroundServices.accountManager
+    private val fxaAccountManager =
+        if (SettingsFragment.checkLocalServiceEnabled()) {
+            application.components.backgroundServices.accountManagerCN
+        } else {
+            application.components.backgroundServices.accountManager
+        }
     @VisibleForTesting
     internal var recentAppsStorage = RecentAppsStorage(application.applicationContext)
 

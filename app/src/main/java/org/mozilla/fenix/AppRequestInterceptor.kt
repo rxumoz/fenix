@@ -13,6 +13,7 @@ import mozilla.components.concept.engine.EngineSession
 import mozilla.components.concept.engine.request.RequestInterceptor
 import org.mozilla.fenix.components.metrics.Event
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.ext.isOnline
 
 class AppRequestInterceptor(private val context: Context) : RequestInterceptor {
@@ -22,18 +23,37 @@ class AppRequestInterceptor(private val context: Context) : RequestInterceptor {
         hasUserGesture: Boolean,
         isSameDomain: Boolean
     ): RequestInterceptor.InterceptionResponse? {
-        var result: RequestInterceptor.InterceptionResponse? = null
+        var result: RequestInterceptor.InterceptionResponse?
 
         // WebChannel-driven authentication does not require a separate redirect interceptor.
         @Suppress("ConstantConditionIf")
         if (FeatureFlags.asFeatureWebChannelsDisabled) {
-            result = context.components.services.accountsAuthFeature.interceptor.onLoadRequest(
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                result = context.components.servicesCN.accountsAuthFeature.interceptor.onLoadRequest(
                     engineSession, uri, hasUserGesture, isSameDomain)
+            } else {
+                result = context.components.services.accountsAuthFeature.interceptor.onLoadRequest(
+                    engineSession, uri, hasUserGesture, isSameDomain)
+            }
+        } else {
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                result = context.components.servicesCN.accountsAuthFeature.interceptor.onLoadRequest(
+                    engineSession, uri, hasUserGesture, isSameDomain)
+            } else {
+                result = null
+            }
         }
 
         if (result == null) {
-            result = context.components.services.appLinksInterceptor.onLoadRequest(
-                engineSession, uri, hasUserGesture, isSameDomain)
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                result = context.components.servicesCN.appLinksInterceptor.onLoadRequest(
+                    engineSession, uri, hasUserGesture, isSameDomain
+                )
+            } else {
+                result = context.components.services.appLinksInterceptor.onLoadRequest(
+                    engineSession, uri, hasUserGesture, isSameDomain
+                )
+            }
         }
 
         return result

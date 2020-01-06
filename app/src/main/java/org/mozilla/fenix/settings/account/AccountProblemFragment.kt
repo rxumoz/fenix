@@ -20,11 +20,16 @@ import org.mozilla.fenix.ext.getPreferenceKey
 import org.mozilla.fenix.ext.nav
 import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.showToolbar
+import org.mozilla.fenix.settings.SettingsFragment
 
 class AccountProblemFragment : PreferenceFragmentCompat(), AccountObserver {
 
     private val signInClickListener = Preference.OnPreferenceClickListener {
-        requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+        if (SettingsFragment.checkLocalServiceEnabled()) {
+            requireComponents.servicesCN.accountsAuthFeature.beginAuthentication(requireContext())
+        } else {
+            requireComponents.services.accountsAuthFeature.beginAuthentication(requireContext())
+        }
         requireComponents.analytics.metrics.track(Event.SyncAuthUseEmailProblem)
         // TODO The sign-in web content populates session history,
         // so pressing "back" after signing in won't take us back into the settings screen, but rather up the
@@ -46,7 +51,13 @@ class AccountProblemFragment : PreferenceFragmentCompat(), AccountObserver {
         super.onResume()
         showToolbar(getString(R.string.sync_reconnect))
 
-        val accountManager = requireComponents.backgroundServices.accountManager
+        val accountManager =
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                requireComponents.backgroundServices.accountManagerCN
+            } else {
+                requireComponents.backgroundServices.accountManager
+            }
+
         accountManager.register(this, owner = this)
 
         // We may have fixed our auth problem, in which case close this fragment.

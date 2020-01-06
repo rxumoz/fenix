@@ -14,6 +14,7 @@ import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.onboarding.FenixOnboarding
+import org.mozilla.fenix.settings.SettingsFragment
 
 /**
  * Describes various states of the home fragment UI.
@@ -50,7 +51,13 @@ class CurrentMode(
     private val dispatchModeChanges: (mode: Mode) -> Unit
 ) : AccountObserver {
 
-    private val accountManager by lazy { context.components.backgroundServices.accountManager }
+    private val accountManager by lazy {
+        if (SettingsFragment.checkLocalServiceEnabled()) {
+            context.components.backgroundServices.accountManagerCN
+        } else {
+            context.components.backgroundServices.accountManager
+        }
+    }
 
     fun getCurrentMode() = if (onboarding.userHasBeenOnboarded()) {
         Mode.fromBrowsingMode(browsingModeManager.mode)

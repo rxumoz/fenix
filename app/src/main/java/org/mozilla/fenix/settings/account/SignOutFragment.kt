@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import mozilla.components.service.fxa.manager.FxaAccountManager
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.requireComponents
+import org.mozilla.fenix.settings.SettingsFragment
 
 class SignOutFragment : BottomSheetDialogFragment() {
     private lateinit var accountManager: FxaAccountManager
@@ -48,7 +49,13 @@ class SignOutFragment : BottomSheetDialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        accountManager = requireComponents.backgroundServices.accountManager
+        accountManager =
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                requireComponents.backgroundServices.accountManagerCN
+            } else {
+                requireComponents.backgroundServices.accountManager
+            }
+
         val view = inflater.inflate(R.layout.fragment_sign_out, container, false)
         view.sign_out_message.text = view.context.getString(
             R.string.sign_out_confirmation_message_2,

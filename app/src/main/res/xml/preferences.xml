@@ -14,6 +14,11 @@
         android:summary="@string/preferences_sign_in_description"
         android:title="@string/preferences_sync" />
 
+    <androidx.preference.SwitchPreference
+            android:key="@string/pref_key_sync_service"
+            android:title="@string/preferences_set_sync_service"
+            android:defaultValue="true"/>
+
     <androidx.preference.PreferenceCategory
         android:key="@string/pref_key_account_category"
         android:title="@string/preferences_category_account"

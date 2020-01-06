@@ -78,6 +78,7 @@ import org.mozilla.fenix.settings.search.EditCustomSearchEngineFragmentDirection
 import org.mozilla.fenix.share.AddNewDeviceFragmentDirections
 import org.mozilla.fenix.sync.SyncedTabsFragmentDirections
 import org.mozilla.fenix.tabtray.FenixTabsAdapter
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.theme.DefaultThemeManager
 import org.mozilla.fenix.theme.ThemeManager
 import org.mozilla.fenix.utils.BrowsersCache
@@ -170,11 +171,20 @@ open class HomeActivity : LocaleAwareAppCompatActivity() {
 
         components.backgroundServices.accountManagerAvailableQueue.runIfReadyOrQueue {
             lifecycleScope.launch {
-                // Make sure accountManager is initialized.
-                components.backgroundServices.accountManager.initAsync().await()
-                // If we're authenticated, kick-off a sync and a device state refresh.
-                components.backgroundServices.accountManager.authenticatedAccount()?.let {
-                    components.backgroundServices.accountManager.syncNowAsync(SyncReason.Startup, debounce = true)
+                if (SettingsFragment.checkLocalServiceEnabled()) {
+                    // Make sure accountManager is initialized.
+                    components.backgroundServices.accountManagerCN.initAsync().await()
+                    // If we're authenticated, kick-off a sync and a device state refresh.
+                    components.backgroundServices.accountManagerCN.authenticatedAccount()?.let {
+                        components.backgroundServices.accountManagerCN.syncNowAsync(SyncReason.Startup, debounce = true)
+                    }
+                } else {
+                    // Make sure accountManager is initialized.
+                    components.backgroundServices.accountManager.initAsync().await()
+                    // If we're authenticated, kick-off a sync and a device state refresh.
+                    components.backgroundServices.accountManager.authenticatedAccount()?.let {
+                        components.backgroundServices.accountManager.syncNowAsync(SyncReason.Startup, debounce = true)
+                    }
                 }
             }
         }

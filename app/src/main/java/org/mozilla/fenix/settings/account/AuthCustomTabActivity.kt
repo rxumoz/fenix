@@ -9,6 +9,7 @@ import mozilla.components.concept.sync.AuthType
 import mozilla.components.concept.sync.OAuthAccount
 import org.mozilla.fenix.customtabs.ExternalAppBrowserActivity
 import org.mozilla.fenix.ext.components
+import org.mozilla.fenix.settings.SettingsFragment
 
 /**
  * A special custom tab for signing into a Firefox Account. The activity is closed once the user is signed in.
@@ -26,7 +27,12 @@ class AuthCustomTabActivity : ExternalAppBrowserActivity() {
 
     override fun onResume() {
         super.onResume()
-        val accountManager = components.backgroundServices.accountManager
-        accountManager.register(accountStateObserver, this, true)
+        if (SettingsFragment.checkLocalServiceEnabled()) {
+            val accountManagerCN = components.backgroundServices.accountManagerCN
+            accountManagerCN.register(accountStateObserver, this, true)
+        } else {
+            val accountManager = components.backgroundServices.accountManager
+            accountManager.register(accountStateObserver, this, true)
+        }
     }
 }

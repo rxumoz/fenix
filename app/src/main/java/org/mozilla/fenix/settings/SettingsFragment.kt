@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.widget.Toast
+import android.provider.SyncStateContract.Helpers.update
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDirections
@@ -44,9 +45,20 @@ import org.mozilla.fenix.ext.toRoundedDrawable
 import org.mozilla.fenix.settings.account.AccountAuthErrorPreference
 import org.mozilla.fenix.settings.account.AccountPreference
 import kotlin.system.exitProcess
+import androidx.preference.SwitchPreference
+import org.mozilla.fenix.R.string.pref_key_sync_service
 
 @Suppress("LargeClass", "TooManyFunctions")
 class SettingsFragment : PreferenceFragmentCompat() {
+
+    companion object {
+        private const val SCROLL_INDICATOR_DELAY = 10L
+        private const val FXA_SYNC_OVERRIDE_EXIT_DELAY = 2000L
+        var localServiceEnabled = true
+        fun checkLocalServiceEnabled(): Boolean {
+            return localServiceEnabled
+        }
+    }
 
     private val accountObserver = object : AccountObserver {
         private fun updateAccountUi(profile: Profile? = null) {
@@ -55,7 +67,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 updateAccountUIState(
                     context = context,
                     profile = profile
-                        ?: context.components.backgroundServices.accountManager.accountProfile()
+                        ?: if (checkLocalServiceEnabled()) {
+                            context.components.backgroundServices.accountManagerCN.accountProfile()
+                        } else {
+                            context.components.backgroundServices.accountManager.accountProfile()
+                        }
                 )
             }
         }
@@ -75,11 +91,25 @@ class SettingsFragment : PreferenceFragmentCompat() {
         super.onCreate(savedInstanceState)
 
         // Observe account changes to keep the UI up-to-date.
-        requireComponents.backgroundServices.accountManager.register(
-            accountObserver,
-            owner = this,
-            autoPause = true
-        )
+        if (localServiceEnabled) {
+            requireComponents.backgroundServices.accountManager.unregister(accountObserver)
+            requireComponents.backgroundServices.accountManagerCN.register(
+                accountObserver,
+                owner = this,
+                autoPause = true
+            )
+
+            updateAccountUIState(
+                requireContext(),
+                requireComponents.backgroundServices.accountManagerCN.accountProfile()
+            )
+        } else {
+            requireComponents.backgroundServices.accountManagerCN.unregister(accountObserver)
+            requireComponents.backgroundServices.accountManager.register(
+                accountObserver,
+                owner = this,
+                autoPause = true
+            )
 
         // It's important to update the account UI state in onCreate since that ensures we'll never
         // display an incorrect state in the UI. We take care to not also call it as part of onResume
@@ -87,10 +117,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
         // For example, if user is signed-in, and we don't perform this call in onCreate, we'll briefly
         // display a "Sign In" preference, which will then get replaced by the correct account information
         // once this call is ran in onResume shortly after.
-        updateAccountUIState(
-            requireContext(),
-            requireComponents.backgroundServices.accountManager.accountProfile()
-        )
+            updateAccountUIState(
+                requireContext(),
+                requireComponents.backgroundServices.accountManager.accountProfile()
+            )
+        }
 
         preferenceManager.sharedPreferences
             .registerOnSharedPreferenceChangeListener(this) { sharedPreferences, key ->
@@ -168,10 +199,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
         setupPreferences()
 
         if (shouldUpdateAccountUIState) {
-            updateAccountUIState(
-                requireContext(),
-                requireComponents.backgroundServices.accountManager.accountProfile()
-            )
+            if (localServiceEnabled) {
+                updateAccountUIState(
+                    requireContext(),
+                    requireComponents.backgroundServices.accountManagerCN.accountProfile()
+                )
+            } else {
+                updateAccountUIState(
+                    requireContext(),
+                    requireComponents.backgroundServices.accountManager.accountProfile()
+                )
+            }
         }
     }
 
@@ -289,7 +327,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun setupPreferences() {
         val leakKey = getPreferenceKey(R.string.pref_key_leakcanary)
         val debuggingKey = getPreferenceKey(R.string.pref_key_remote_debugging)
+        val switchSyncService = context!!.getPreferenceKey(R.string.pref_key_sync_service)
 
+        val preferenceSwitchSyncService = findPreference<SwitchPreference>(switchSyncService)
         val preferenceLeakCanary = findPreference<Preference>(leakKey)
         val preferenceRemoteDebugging = findPreference<Preference>(debuggingKey)
 
@@ -333,6 +373,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<Preference>(
             getPreferenceKey(R.string.pref_key_debug_settings)
         )?.isVisible = requireContext().settings().showSecretDebugMenuThisSession
+        localServiceEnabled = preferenceSwitchSyncService!!.isChecked()
+
+        preferenceSwitchSyncService.onPreferenceChangeListener =
+            Preference.OnPreferenceChangeListener { _, _ ->
+                switchSyncService()
+                true
+            }
     }
 
     private fun navigateFromSettings(directions: NavDirections) {
@@ -360,6 +407,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
      * Possible conditions are logged-in without problems, logged-out, and logged-in but needs to re-authenticate.
      */
     private fun updateAccountUIState(context: Context, profile: Profile?) {
+        val preferenceLocalService =
+            findPreference<Preference>(context.getPreferenceKey(pref_key_sync_service))
         val preferenceSignIn =
             findPreference<Preference>(context.getPreferenceKey(R.string.pref_key_sign_in))
         val preferenceFirefoxAccount =
@@ -377,9 +426,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val account = accountManager.authenticatedAccount()
 
         updateFxASyncOverrideMenu()
+        val accountManagerCN = requireComponents.backgroundServices.accountManagerCN
+        val accountCN = accountManagerCN.authenticatedAccount()
+
+        var noNeedReAuth = account != null && !accountManager.accountNeedsReauth()
+        var noNeedReAuthCN = accountCN != null && !accountManagerCN.accountNeedsReauth()
+        var needReAuth = account != null && accountManager.accountNeedsReauth()
+        var needReAuthCN = accountCN != null && accountManagerCN.accountNeedsReauth()
 
         // Signed-in, no problems.
-        if (account != null && !accountManager.accountNeedsReauth()) {
+        if (noNeedReAuth || noNeedReAuthCN) {
+            preferenceLocalService?.isVisible = false
             preferenceSignIn?.isVisible = false
 
             profile?.avatar?.url?.let { avatarUrl ->
@@ -402,7 +459,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
             preferenceFirefoxAccount?.email = profile?.email
 
             // Signed-in, need to re-authenticate.
-        } else if (account != null && accountManager.accountNeedsReauth()) {
+        } else if (needReAuth || needReAuthCN) {
+            preferenceLocalService?.isVisible = false
             preferenceFirefoxAccount?.isVisible = false
             preferenceFirefoxAccountAuthError?.isVisible = true
             accountPreferenceCategory?.isVisible = true
@@ -414,6 +472,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
             // Signed-out.
         } else {
+            preferenceLocalService?.isVisible = true
             preferenceSignIn?.isVisible = true
             preferenceFirefoxAccount?.isVisible = false
             preferenceFirefoxAccountAuthError?.isVisible = false
@@ -438,6 +497,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             isEnabled = enabled
             summary = settings.overrideFxAServer.ifEmpty { null }
         }
+
         preferenceSyncOverride?.apply {
             isVisible = show
             isEnabled = enabled
@@ -445,8 +505,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
     }
 
-    companion object {
-        private const val SCROLL_INDICATOR_DELAY = 10L
-        private const val FXA_SYNC_OVERRIDE_EXIT_DELAY = 2000L
+    private fun switchSyncService() {
+        localServiceEnabled = !localServiceEnabled
+        // setupAccountUI()
+        if (localServiceEnabled) {
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManagerCN.accountProfile())
+        } else {
+            updateAccountUIState(context!!, requireComponents.backgroundServices.accountManager.accountProfile())
+        }
     }
 }

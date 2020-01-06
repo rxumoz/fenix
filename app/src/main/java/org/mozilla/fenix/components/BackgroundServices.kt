@@ -67,6 +67,8 @@ class BackgroundServices(
         )
 
     val serverConfig = FxaServer.config(context)
+    val cnserverConfig = ServerConfig("https://accounts.firefox.com.cn", FxaServer.CLIENT_ID, FxaServer.REDIRECT_URL_CN)
+
     private val deviceConfig = DeviceConfig(
         name = defaultDeviceName(context),
         type = DeviceType.MOBILE,
@@ -119,6 +121,7 @@ class BackgroundServices(
     val accountAbnormalities = AccountAbnormalities(context, crashReporter)
 
     val accountManager by lazy { makeAccountManager(context, serverConfig, deviceConfig, syncConfig) }
+    val accountManagerCN by lazy { makeAccountManager(context, cnserverConfig, deviceConfig, syncConfig) }
 
     val syncedTabsStorage by lazy {
         SyncedTabsStorage(accountManager, context.components.core.store, remoteTabsStorage.value)

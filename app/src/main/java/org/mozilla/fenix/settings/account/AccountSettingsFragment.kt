@@ -36,6 +36,7 @@ import mozilla.components.service.fxa.sync.SyncStatusObserver
 import mozilla.components.service.fxa.sync.getLastSynced
 import mozilla.components.support.ktx.android.util.dpToPx
 import org.mozilla.fenix.FeatureFlags
+import org.mozilla.fenix.GleanMetrics.SyncAccount.syncNow
 import org.mozilla.fenix.R
 import org.mozilla.fenix.components.FenixSnackbar
 import org.mozilla.fenix.components.StoreProvider
@@ -46,6 +47,7 @@ import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.secure
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.showToolbar
+import org.mozilla.fenix.settings.SettingsFragment
 
 @SuppressWarnings("TooManyFunctions", "LargeClass")
 class AccountSettingsFragment : PreferenceFragmentCompat() {
@@ -125,7 +127,13 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
             )
         }
 
-        accountManager = requireComponents.backgroundServices.accountManager
+        accountManager =
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                requireComponents.backgroundServices.accountManagerCN
+            } else {
+                requireComponents.backgroundServices.accountManager
+            }
+
         accountManager.register(accountStateObserver, this, true)
 
         // Sign out
@@ -140,11 +148,20 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
             it.onPreferenceClickListener = getClickListenerForSyncNow()
 
             // Current sync state
-            if (requireComponents.backgroundServices.accountManager.isSyncActive()) {
-                it.title = getString(R.string.sync_syncing_in_progress)
-                it.isEnabled = false
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                if (requireComponents.backgroundServices.accountManagerCN.isSyncActive()) {
+                    it.title = getString(R.string.sync_syncing_in_progress)
+                    it.isEnabled = false
+                } else {
+                    it.isEnabled = true
+                }
             } else {
-                it.isEnabled = true
+                if (requireComponents.backgroundServices.accountManager.isSyncActive()) {
+                    it.title = getString(R.string.sync_syncing_in_progress)
+                    it.isEnabled = false
+                } else {
+                    it.isEnabled = true
+                }
             }
         }
 
@@ -173,7 +190,11 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
             setOnPreferenceChangeListener { _, newValue ->
                 SyncEnginesStorage(context).setStatus(SyncEngine.History, newValue as Boolean)
                 @Suppress("DeferredResultUnused")
-                context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                if (SettingsFragment.checkLocalServiceEnabled()) {
+                    context.components.backgroundServices.accountManagerCN.syncNowAsync(SyncReason.EngineChange)
+                } else {
+                    context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                }
                 true
             }
         }
@@ -183,7 +204,11 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
             setOnPreferenceChangeListener { _, newValue ->
                 SyncEnginesStorage(context).setStatus(SyncEngine.Bookmarks, newValue as Boolean)
                 @Suppress("DeferredResultUnused")
-                context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                if (SettingsFragment.checkLocalServiceEnabled()) {
+                    context.components.backgroundServices.accountManagerCN.syncNowAsync(SyncReason.EngineChange)
+                } else {
+                    context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                }
                 true
             }
         }
@@ -199,7 +224,11 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
                 ) {
                     SyncEnginesStorage(context).setStatus(SyncEngine.Passwords, newValue as Boolean)
                     @Suppress("DeferredResultUnused")
-                    context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                    if (SettingsFragment.checkLocalServiceEnabled()) {
+                        context.components.backgroundServices.accountManagerCN.syncNowAsync(SyncReason.EngineChange)
+                    } else {
+                        context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                    }
                 } else {
                     showPinDialogWarning(newValue as Boolean)
                 }
@@ -225,9 +254,15 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
 
         // NB: ObserverRegistry will take care of cleaning up internal references to 'observer' and
         // 'owner' when appropriate.
-        requireComponents.backgroundServices.accountManager.registerForSyncEvents(
-            syncStatusObserver, owner = this, autoPause = true
-        )
+        if (SettingsFragment.checkLocalServiceEnabled()) {
+            requireComponents.backgroundServices.accountManagerCN.registerForSyncEvents(
+                syncStatusObserver, owner = this, autoPause = true
+            )
+        } else {
+            requireComponents.backgroundServices.accountManager.registerForSyncEvents(
+                syncStatusObserver, owner = this, autoPause = true
+            )
+        }
     }
 
     private fun showPinDialogWarning(newValue: Boolean) {
@@ -241,7 +276,11 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
                 setNegativeButton(getString(R.string.logins_warning_dialog_later)) { _: DialogInterface, _ ->
                     SyncEnginesStorage(context).setStatus(SyncEngine.Passwords, newValue)
                     @Suppress("DeferredResultUnused")
-                    context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                    if (SettingsFragment.checkLocalServiceEnabled()) {
+                        context.components.backgroundServices.accountManagerCN.syncNowAsync(SyncReason.EngineChange)
+                    } else {
+                        context.components.backgroundServices.accountManager.syncNowAsync(SyncReason.EngineChange)
+                    }
                 }
 
                 setPositiveButton(getString(R.string.logins_warning_dialog_set_up_now)) { it: DialogInterface, _ ->
@@ -286,7 +325,12 @@ class AccountSettingsFragment : PreferenceFragmentCompat() {
         viewLifecycleOwner.lifecycleScope.launch {
             requireComponents.analytics.metrics.track(Event.SyncAccountSyncNow)
             // Trigger a sync.
-            requireComponents.backgroundServices.accountManager.syncNowAsync(SyncReason.User)
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                requireComponents.backgroundServices.accountManagerCN.syncNowAsync(SyncReason.User)
+            } else {
+                requireComponents.backgroundServices.accountManager.syncNowAsync(SyncReason.User)
+            }
+
                 .await()
             // Poll for device events & update devices.
             accountManager.authenticatedAccount()

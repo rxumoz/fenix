@@ -42,6 +42,7 @@ import org.mozilla.fenix.customtabs.CustomTabToolbarMenu
 import org.mozilla.fenix.ext.bookmarkStorage
 import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.settings
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.theme.ThemeManager
 
 interface BrowserToolbarViewInteractor {
@@ -219,7 +220,12 @@ class BrowserToolbarView(
             } else {
                 menuToolbar = DefaultToolbarMenu(
                     context = this,
-                    hasAccountProblem = components.backgroundServices.accountManager.accountNeedsReauth(),
+                    hasAccountProblem =
+                    if (SettingsFragment.checkLocalServiceEnabled()) {
+                        components.backgroundServices.accountManagerCN.accountNeedsReauth()
+                    } else {
+                        components.backgroundServices.accountManager.accountNeedsReauth()
+                    },
                     shouldReverseItems = !shouldUseBottomToolbar,
                     onItemTapped = { interactor.onBrowserToolbarMenuItemTapped(it) },
                     lifecycleOwner = lifecycleOwner,

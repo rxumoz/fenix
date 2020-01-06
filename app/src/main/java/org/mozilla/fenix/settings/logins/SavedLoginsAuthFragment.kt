@@ -38,6 +38,7 @@ import org.mozilla.fenix.ext.requireComponents
 import org.mozilla.fenix.ext.secure
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.ext.showToolbar
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.settings.SharedPreferenceUpdater
 import java.util.concurrent.Executors
 
@@ -129,7 +130,12 @@ class SavedLoginsAuthFragment : PreferenceFragmentCompat(), AccountObserver {
             true
         }
 
-        val accountManager = requireComponents.backgroundServices.accountManager
+        val accountManager =
+            if (SettingsFragment.checkLocalServiceEnabled()) {
+                requireComponents.backgroundServices.accountManagerCN
+            } else {
+                requireComponents.backgroundServices.accountManager
+            }
         accountManager.register(this, owner = this)
 
         val accountExists = accountManager.authenticatedAccount() != null

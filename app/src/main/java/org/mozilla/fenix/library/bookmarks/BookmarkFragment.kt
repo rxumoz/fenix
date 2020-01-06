@@ -148,7 +148,8 @@ class BookmarkFragment : LibraryPageFragment<BookmarkNode>(), UserInteractionHan
         // it'll just get visually lost. Inside of the "Desktop Bookmarks" node, it'll nicely stand-out,
         // since there are always only three other items in there. It's also the right place contextually.
         if (currentGuid == BookmarkRoot.Root.id &&
-            requireComponents.backgroundServices.accountManager.authenticatedAccount() == null
+            requireComponents.backgroundServices.accountManager.authenticatedAccount() == null &&
+            requireComponents.backgroundServices.accountManagerCN.authenticatedAccount() == null
         ) {
             signInView.view.visibility = View.VISIBLE
         } else {

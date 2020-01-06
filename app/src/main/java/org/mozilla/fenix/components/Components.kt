@@ -42,6 +42,7 @@ class Components(private val context: Context) {
         )
     }
     val services by lazy { Services(context, backgroundServices.accountManager) }
+    val servicesCN by lazy { ServicesCN(context, backgroundServices.accountManagerCN) }
     val core by lazy { Core(context) }
     val search by lazy { Search(context) }
     val useCases by lazy {

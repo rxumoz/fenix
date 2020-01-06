@@ -16,10 +16,17 @@ import org.mozilla.fenix.ext.settings
 object FxaServer {
     const val CLIENT_ID = "a2270f727f45f648"
     const val REDIRECT_URL = "https://accounts.firefox.com/oauth/success/$CLIENT_ID"
+    const val REDIRECT_URL_CN = "https://accounts.firefox.com.cn/oauth/success/$CLIENT_ID"
 
     @Suppress("ConstantConditionIf", "UNUSED_PARAMETER")
     fun redirectUrl(context: Context) = if (FeatureFlags.asFeatureWebChannelsDisabled) {
         REDIRECT_URL
+    } else {
+        "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel"
+    }
+
+    fun redirectUrlCN() = if (FeatureFlags.asFeatureWebChannelsDisabled) {
+        REDIRECT_URL_CN
     } else {
         "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel"
     }

@@ -95,6 +95,7 @@ import org.mozilla.fenix.ext.sessionsOfType
 import org.mozilla.fenix.ext.settings
 import org.mozilla.fenix.home.SharedViewModel
 import org.mozilla.fenix.tabtray.TabTrayDialogFragment
+import org.mozilla.fenix.settings.SettingsFragment
 import org.mozilla.fenix.theme.ThemeManager
 import org.mozilla.fenix.wifi.SitePermissionsWifiIntegration
 import java.lang.ref.WeakReference
@@ -529,8 +530,17 @@ abstract class BaseBrowserFragment : Fragment(), UserInteractionHandler, Session
                         customTabSessionId,
                         requireComponents.core.engine,
                         requireComponents.core.store,
-                        requireComponents.backgroundServices.accountManager,
-                        requireComponents.backgroundServices.serverConfig,
+
+                        if (SettingsFragment.checkLocalServiceEnabled()) {
+                            requireComponents.backgroundServices.accountManagerCN
+                        } else {
+                            requireComponents.backgroundServices.accountManager
+                        },
+                        if (SettingsFragment.checkLocalServiceEnabled()) {
+                            requireComponents.backgroundServices.cnserverConfig
+                        } else {
+                            requireComponents.backgroundServices.serverConfig
+                        },
                         setOf(FxaCapability.CHOOSE_WHAT_TO_SYNC)
                     ),
                     owner = this,

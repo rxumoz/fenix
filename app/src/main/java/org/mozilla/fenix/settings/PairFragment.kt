@@ -37,10 +37,18 @@ class PairFragment : Fragment(R.layout.fragment_pair), UserInteractionHandler {
                     requestPermissions(permissions, REQUEST_CODE_CAMERA_PERMISSIONS)
                 },
                 onScanResult = { pairingUrl ->
-                    requireComponents.services.accountsAuthFeature.beginPairingAuthentication(
-                        requireContext(),
-                        pairingUrl
-                    )
+                    if (SettingsFragment.checkLocalServiceEnabled()) {
+                        requireComponents.servicesCN.accountsAuthFeature.beginPairingAuthentication(
+                            requireContext(),
+                            pairingUrl
+                        )
+                    } else {
+                        requireComponents.services.accountsAuthFeature.beginPairingAuthentication(
+                            requireContext(),
+                            pairingUrl
+                        )
+                    }
+
                     val vibrator = requireContext().getSystemService<Vibrator>()!!
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         vibrator.vibrate(
