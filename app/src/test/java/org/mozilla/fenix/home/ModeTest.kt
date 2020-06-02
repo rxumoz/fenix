@@ -37,6 +37,7 @@ class ModeTest {
         dispatchModeChanges = mockk(relaxed = true)
 
         every { context.components.backgroundServices.accountManager } returns accountManager
+        every { context.components.backgroundServices.accountManagerCN } returns accountManager
 
         currentMode = CurrentMode(
             context,

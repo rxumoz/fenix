@@ -62,6 +62,7 @@ class ShareViewModelTest {
         every { application.packageManager } returns packageManager
         every { application.getSystemService<ConnectivityManager>() } returns connectivityManager
         every { application.components.backgroundServices.accountManager } returns fxaAccountManager
+        every { application.components.backgroundServices.accountManagerCN } returns fxaAccountManager
 
         viewModel = ShareViewModel(application)
     }
