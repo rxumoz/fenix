@@ -11,6 +11,9 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.StrictMode
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.method.LinkMovementMethod
 import android.view.Display.FLAG_SECURE
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -20,6 +23,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.PopupWindow
+import android.widget.TextView
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -109,6 +113,7 @@ import org.mozilla.fenix.whatsnew.WhatsNew
 import java.lang.ref.WeakReference
 import kotlin.math.abs
 import kotlin.math.min
+import kotlin.system.exitProcess
 
 @ExperimentalCoroutinesApi
 @Suppress("TooManyFunctions", "LargeClass")
@@ -398,6 +403,10 @@ class HomeFragment : Fragment() {
 
             view.tab_button?.setCountWithAnimation(tabCount)
             view.add_tabs_to_collections_button?.isVisible = tabCount > 0
+        }
+
+        if(!onboarding.userHasBeenOnboarded()){
+            showPrivacyPopWindow()
         }
     }
 
@@ -933,6 +942,40 @@ class HomeFragment : Fragment() {
 
     private fun openTabTray() {
         TabTrayDialogFragment.show(parentFragmentManager)
+    }
+
+    private fun showPrivacyPopWindow(){
+        val content = "Firefox Lite 是由 Mozilla 和其他贡献者提供的自由且开源软件。\n" +
+                "Firefox Lite 根据 Mozilla Public License 以及其他开源许可证向您提供。\n" +
+                "您没有得到 Mozilla 基金会或任何其他方面（包括 Mozilla、Firefox 或 Firefox Lite 的名称或标志）的商标授权。更多信息参见：此处。\n" +
+                "Firefox Lite 的其他源代码可按各种自由和开源软件许可证使用。\n" +
+                "关于我们如何使用您通过 Firefox Lite提交给 Mozilla 的个人信息和反馈，请参见 Firefox Lite 隐私权政策。"
+        val messageClickable1 = "Mozilla Public License"
+        val messageClickable2 = "此处"
+        val messageClickable3 = "自由和开源软件许可证"
+        val messageClickable4 = "Firefox Lite 隐私权政策"
+        val messageSpannable = SpannableString(content)
+
+        val clickableSpan1 = MultiClickableSpan(1, requireContext())
+        val clickableSpan2 = MultiClickableSpan(2, requireContext())
+        val clickableSpan3 = MultiClickableSpan(3, requireContext())
+        val clickableSpan4 = MultiClickableSpan(4, requireContext())
+
+        messageSpannable.setSpan(clickableSpan1, content.indexOf(messageClickable1), content.indexOf(messageClickable1) + messageClickable1.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+        messageSpannable.setSpan(clickableSpan2, content.indexOf(messageClickable2), content.indexOf(messageClickable2) + messageClickable2.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+        messageSpannable.setSpan(clickableSpan3, content.indexOf(messageClickable3), content.indexOf(messageClickable3) + messageClickable3.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+        messageSpannable.setSpan(clickableSpan4, content.indexOf(messageClickable4), content.indexOf(messageClickable4) + messageClickable4.length, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+        val builder = AlertDialog.Builder(requireActivity())
+            .setPositiveButton("同意并继续", DialogInterface.OnClickListener { _, _ ->
+            })
+            .setNeutralButton("退出应用", DialogInterface.OnClickListener { _, _ -> exitProcess(0) })
+            .setTitle("温馨提示")
+            .setMessage(messageSpannable)
+            .setCancelable(false)
+        //.setMessage(Html.fromHtml("<a href=\"https://www.mozilla.org/zh-CN/privacy/firefox/\">点此查看Firefox隐私声明</a>"))
+        val alertDialog:AlertDialog = builder.create()
+        alertDialog.show()
+        alertDialog.findViewById<TextView>(android.R.id.message)?.movementMethod = LinkMovementMethod.getInstance()
     }
 
     companion object {
