@@ -250,6 +250,8 @@
     <string name="preferences_override_sync_tokenserver">Custom Sync server</string>
     <!-- Toast shown after updating the FxA/Sync server override preferences -->
     <string name="toast_override_fxa_sync_server_done">Firefox Account/Sync server modified. Quitting the application to apply changes…</string>
+    <!-- Switch Preference for local/global fxa server -->
+    <string name="preferences_use_local_fxa_server">Use local service</string>
     <!-- Preference category for account information -->
     <string name="preferences_category_account">Account</string>
     <!-- Preference shown on banner to sign into account -->

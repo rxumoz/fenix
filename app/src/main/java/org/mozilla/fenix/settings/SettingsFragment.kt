@@ -17,6 +17,7 @@ import androidx.navigation.NavDirections
 import androidx.navigation.findNavController
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.SwitchPreference
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -68,6 +69,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
     // This flag is set to `false` at the end of `onResume`.
     private var creatingFragment = true
 
+    private var localFxaServerIsChecked = true
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -76,7 +79,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
             scope = lifecycleScope,
             accountManager = requireComponents.backgroundServices.accountManager,
             httpClient = requireComponents.core.client,
-            updateFxASyncOverrideMenu = ::updateFxASyncOverrideMenu
+            updateFxASyncOverrideMenu = ::updateFxASyncOverrideMenu,
+            updateFxAUseLocalMenu = :: updateFxAUseLocalMenu
         )
 
         // Observe account changes to keep the UI up-to-date.
@@ -291,10 +295,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun setupPreferences() {
         val leakKey = getPreferenceKey(R.string.pref_key_leakcanary)
         val debuggingKey = getPreferenceKey(R.string.pref_key_remote_debugging)
+        val useLocalFxAServer = getPreferenceKey(R.string.pref_key_use_local_fxa_server)
 
         val preferenceLeakCanary = findPreference<Preference>(leakKey)
         val preferenceRemoteDebugging = findPreference<Preference>(debuggingKey)
         val preferenceMakeDefaultBrowser = requirePreference<Preference>(R.string.pref_key_make_default_browser)
+        val preferenceUseLocalFxAServer = findPreference<SwitchPreference>(useLocalFxAServer)
+        localFxaServerIsChecked = preferenceUseLocalFxAServer!!.isChecked
 
         if (!Config.channel.isReleased) {
             preferenceLeakCanary?.setOnPreferenceChangeListener { _, newValue ->
@@ -318,6 +325,21 @@ class SettingsFragment : PreferenceFragmentCompat() {
             findPreference<Preference>(getPreferenceKey(R.string.pref_key_override_fxa_server))
         val preferenceSyncOverride =
             findPreference<Preference>(getPreferenceKey(R.string.pref_key_override_sync_tokenserver))
+
+        preferenceUseLocalFxAServer.onPreferenceChangeListener =
+            Preference.OnPreferenceChangeListener { preference, newValue ->
+                preference.context.settings().preferences.edit()
+                    .putBoolean(preference.key, newValue as Boolean).apply()
+                updateFxAUseLocalMenu()
+                Toast.makeText(
+                    context,
+                    getString(R.string.toast_override_fxa_sync_server_done),
+                    Toast.LENGTH_LONG
+                ).show()
+                Handler().postDelayed({
+                    exitProcess(0)
+                }, FXA_SYNC_OVERRIDE_EXIT_DELAY)
+            }
 
         val syncFxAOverrideUpdater = object : StringSharedPreferenceUpdater() {
             override fun onPreferenceChange(preference: Preference, newValue: Any?): Boolean {
@@ -384,6 +406,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
             scrollBarSize = 0
             delay(SCROLL_INDICATOR_DELAY)
             scrollBarSize = originalSize
+        }
+    }
+
+    private fun updateFxAUseLocalMenu() {
+        localFxaServerIsChecked = !localFxaServerIsChecked
+        val preferenceUseLocalFxAServer =
+            findPreference<SwitchPreference>(getPreferenceKey(R.string.pref_key_use_local_fxa_server))
+        val enabled =
+            requireComponents.backgroundServices.accountManager.authenticatedAccount() == null
+        preferenceUseLocalFxAServer?.apply {
+            isEnabled = enabled
         }
     }
 
