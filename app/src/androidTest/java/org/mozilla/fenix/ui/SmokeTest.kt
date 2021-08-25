@@ -20,6 +20,7 @@ import org.junit.Before
 import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
+import org.mozilla.fenix.Config
 import org.mozilla.fenix.IntentReceiverActivity
 import org.mozilla.fenix.R
 import org.mozilla.fenix.ext.components
@@ -30,6 +31,7 @@ import org.mozilla.fenix.helpers.HomeActivityIntentTestRule
 import org.mozilla.fenix.helpers.RecyclerViewIdlingResource
 import org.mozilla.fenix.helpers.TestAssetHelper
 import org.mozilla.fenix.helpers.TestHelper
+import org.mozilla.fenix.helpers.TestHelper.appContext
 import org.mozilla.fenix.helpers.TestHelper.appName
 import org.mozilla.fenix.helpers.TestHelper.assertExternalAppOpens
 import org.mozilla.fenix.helpers.TestHelper.createCustomTabIntent
@@ -150,6 +152,28 @@ class SmokeTest {
     // Verifies the first run onboarding screen
     @Test
     fun firstRunScreenTest() {
+        if (Config.channel.isMozillaOnline) {
+            homeScreen {
+                verifyPrivacyPopWindow()
+            }.clickPrivacyClickableSpan(appContext.getString(R.string.privacy_notice_clickable1)) {
+                verifyPrivacyContentPage("About the License")
+                verifyPrivacyContentCloseButton()
+            }.closePrivacyContentDisplay {
+                verifyPrivacyPopWindow()
+            }.clickPrivacyClickableSpan(appContext.getString(R.string.privacy_notice_clickable2)) {
+                verifyPrivacyContentPage("Mozilla Trademark Guidelines")
+                verifyPrivacyContentCloseButton()
+            }.closePrivacyContentDisplay {
+                verifyPrivacyPopWindow()
+            }.clickPrivacyClickableSpan(appContext.getString(R.string.privacy_notice_clickable3)) {
+                verifyPrivacyContentPage("我们认为隐私是健康互联网的基石。")
+                verifyPrivacyContentCloseButton()
+            }.closePrivacyContentDisplay {
+                verifyPrivacyPopWindow()
+                clickAgreeAndContinue()
+            }
+        }
+
         homeScreen {
             verifyHomeScreen()
             verifyNavigationToolbar()

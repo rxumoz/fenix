@@ -7,10 +7,16 @@
 package org.mozilla.fenix.ui.robots
 
 import android.graphics.Bitmap
+import android.text.SpannableString
+import android.text.style.ClickableSpan
+import android.view.View
 import android.widget.EditText
+import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.NoMatchingViewException
+import androidx.test.espresso.UiController
+import androidx.test.espresso.ViewAction
 import androidx.test.espresso.action.ViewActions
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
@@ -38,6 +44,8 @@ import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.instanceOf
 import org.hamcrest.CoreMatchers.not
+import org.hamcrest.CoreMatchers.startsWith
+import org.hamcrest.Matcher
 import org.hamcrest.Matchers
 import org.junit.Assert
 import org.mozilla.fenix.R
@@ -96,6 +104,8 @@ class HomeScreenRobot {
     fun verifyAutomaticPrivacyHeader() = assertAutomaticPrivacyHeader()
     fun verifyAutomaticPrivacyText() = assertAlwaysPrivacyText()
 
+    fun verifyPrivacyPopWindow() = assertPrivacyPopWindow()
+
     // Pick your toolbar placement
     fun verifyTakePositionHeader() = assertTakePlacementHeader()
     fun verifyTakePositionElements() {
@@ -152,8 +162,20 @@ class HomeScreenRobot {
         ).perform(click())
     }
 
+    fun clickAgreeAndContinue() {
+        onView(withText("Agree and Continue")).perform(click())
+    }
+
     class Transition {
         val mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+
+        fun clickPrivacyClickableSpan(textToClick: String, interact: PrivacyContentDisplayRobot.() -> Unit): PrivacyContentDisplayRobot.Transition {
+            mDevice.waitNotNull(Until.findObject(By.text("About your rights")), waitingTime)
+            onView(withText(startsWith("Mozilla Firefox is free and open"))).perform(clickClickableSpan(textToClick))
+
+            PrivacyContentDisplayRobot().interact()
+            return PrivacyContentDisplayRobot.Transition()
+        }
 
         fun openTabDrawer(interact: TabDrawerRobot.() -> Unit): TabDrawerRobot.Transition {
             mDevice.waitForIdle()
@@ -490,6 +512,12 @@ private fun assertAlwaysPrivacyText() {
         .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
 }
 
+private fun assertPrivacyPopWindow() {
+    mDevice.findObject(UiSelector().text("About your rights")).waitForExists(waitingTime)
+    onView(allOf(withText("About your rights")))
+        .check(matches(withEffectiveVisibility(Visibility.VISIBLE)))
+}
+
 private fun assertYourPrivacyHeader() {
     scrollToElementByText("Your privacy")
     onView(allOf(withText("Your privacy")))
@@ -590,4 +618,52 @@ private fun startBrowsingButton(): UiObject {
     homeScreenList()
         .ensureFullyVisible(startBrowsingButton)
     return startBrowsingButton
+}
+
+fun clickClickableSpan(textToClick: CharSequence): ViewAction {
+    return object : ViewAction {
+
+        override fun getConstraints(): Matcher<View> {
+            return Matchers.instanceOf(TextView::class.java)
+        }
+
+        override fun getDescription(): String {
+            return "clicking on a ClickableSpan"
+        }
+
+        override fun perform(uiController: UiController, view: View) {
+            val textView = view as TextView
+            val spannableString = SpannableString(textView.text)
+
+            if (spannableString.isEmpty()) {
+                // TextView is empty, nothing to do
+                throw NoMatchingViewException.Builder()
+                    .includeViewHierarchy(true)
+                    .withRootView(textView)
+                    .build()
+            }
+
+            // Get the links inside the TextView and check if we find textToClick
+            val spans = spannableString.getSpans(0, spannableString.length, ClickableSpan::class.java)
+            if (spans.isNotEmpty()) {
+                var spanCandidate: ClickableSpan
+                for (span: ClickableSpan in spans) {
+                    spanCandidate = span
+                    val start = spannableString.getSpanStart(spanCandidate)
+                    val end = spannableString.getSpanEnd(spanCandidate)
+                    val sequence = spannableString.subSequence(start, end)
+                    if (textToClick.toString().equals(sequence.toString())) {
+                        span.onClick(textView)
+                        return
+                    }
+                }
+            }
+
+            // textToClick not found in TextView
+            throw NoMatchingViewException.Builder()
+                .includeViewHierarchy(true)
+                .withRootView(textView)
+                .build()
+        }
+    }
 }
